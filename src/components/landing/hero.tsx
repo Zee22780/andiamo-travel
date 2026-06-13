@@ -2,8 +2,11 @@
 
 import { useRef } from "react";
 import gsap from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { useGSAP } from "@gsap/react";
 import { PlacePhoto } from "@/components/place-photo";
+
+gsap.registerPlugin(ScrollTrigger);
 
 const HEADLINE = ["Plan it.", "Live it.", "Adapt it."];
 
@@ -33,6 +36,27 @@ export function Hero() {
           { y: 16, opacity: 0, duration: 0.5, stagger: 0.1 },
           "-=0.3",
         );
+
+      // Parallax: drift the hero photo slower than the page on scroll so it
+      // reads as a recessed layer. Desktop only — the effect is weak on short
+      // viewports and scroll-linked motion can stutter on mobile browsers. The
+      // photo lives in a scale-110 frame, so ±5% of drift never reveals a gap.
+      if (window.matchMedia("(min-width: 768px)").matches) {
+        gsap.fromTo(
+          "[data-hero='photo']",
+          { yPercent: -5 },
+          {
+            yPercent: 5,
+            ease: "none",
+            scrollTrigger: {
+              trigger: root.current,
+              start: "top top",
+              end: "bottom top",
+              scrub: true,
+            },
+          },
+        );
+      }
     },
     { scope: root },
   );
@@ -42,18 +66,18 @@ export function Hero() {
       ref={root}
       className="relative overflow-hidden bg-gradient-to-br from-[#0E7C6B] via-[#0c6a5b] to-[#0a4f44] text-white"
     >
-      {/* travel photo behind a teal scrim for contrast (gradient fallback) */}
-      <PlacePhoto
-        query="Amalfi Coast Italy"
-        width={1280}
-        gradient=""
-        className="absolute inset-0"
-      >
-        <div
-          aria-hidden
-          className="absolute inset-0 bg-gradient-to-br from-[#0E7C6B]/70 via-[#0c6a5b]/45 to-[#0a4f44]/80"
-        />
-      </PlacePhoto>
+      {/* travel photo behind a teal scrim for contrast (gradient fallback);
+          the scale-110 wrapper is the parallax layer (see useGSAP above) */}
+      <div data-hero="photo" aria-hidden className="absolute inset-0 scale-110">
+        <PlacePhoto
+          query="Amalfi Coast Italy"
+          width={1280}
+          gradient=""
+          className="absolute inset-0"
+        >
+          <div className="absolute inset-0 bg-gradient-to-br from-[#0E7C6B]/70 via-[#0c6a5b]/45 to-[#0a4f44]/80" />
+        </PlacePhoto>
+      </div>
       {/* warm accent glow */}
       <div
         aria-hidden
