@@ -11,7 +11,7 @@ import {
 import { placeLookup } from "@/lib/places";
 import { travelTimes } from "@/lib/routes";
 
-export const maxDuration = 120;
+export const maxDuration = 60; // Vercel Hobby cap
 
 // POST { message } → SSE stream:
 //   text        {delta}            — assistant tokens

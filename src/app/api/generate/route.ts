@@ -5,7 +5,10 @@ import { GENERATE_SYSTEM } from "@/lib/ai/generate";
 import { ItinerarySchema, TripSummary } from "@/lib/ai/schemas";
 import { saveItinerary } from "@/db/trips";
 
-export const maxDuration = 300;
+// Vercel Hobby caps function execution at 60s. Large multi-week generations
+// can brush against this — keep new trips shorter when testing on Hobby, or
+// raise this on a paid plan.
+export const maxDuration = 60;
 
 // POST { summary: TripSummary } → SSE stream:
 //   event "progress"  data {chars}      — generation heartbeat
