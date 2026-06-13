@@ -264,7 +264,7 @@ export function TodayView({
 
   return (
     <div className="mx-auto flex h-full w-full max-w-md flex-col overflow-y-auto px-5 py-6">
-      <Phase label={isToday ? "Today" : "Up next"} />
+      <Phase label={isToday ? "Today" : "Up next"} accent={isToday} />
       <h2 className="mt-2 font-headline text-2xl font-bold leading-tight">
         Day {activeDay.dayNumber} · {activeDay.legDestination}
       </h2>
@@ -417,9 +417,16 @@ function DayPreview({ day, heading }: { day: FlatDay; heading: string }) {
   );
 }
 
-function Phase({ label }: { label: string }) {
+function Phase({ label, accent }: { label: string; accent?: boolean }) {
+  // Per the design system, the active "Today" marker (mid-trip) uses the
+  // terracotta accent; other phases stay teal.
   return (
-    <span className="w-fit rounded-full bg-primary/10 px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-primary">
+    <span
+      className={cn(
+        "w-fit rounded-full px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wide",
+        accent ? "bg-accent/15 text-accent" : "bg-primary/10 text-primary",
+      )}
+    >
       {label}
     </span>
   );
