@@ -2,7 +2,14 @@ import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest } from "next/server";
 import { COPILOT_SYSTEM, COPILOT_TOOLS } from "@/lib/ai/copilot";
 import { loadChat, saveChatMessage } from "@/db/chat";
-import { applyStopOperations, loadTrip, StopOperation } from "@/db/trips";
+import {
+  applyStopOperations,
+  loadTrip,
+  loadTripRegion,
+  StopOperation,
+} from "@/db/trips";
+import { placeLookup } from "@/lib/places";
+import { travelTimes } from "@/lib/routes";
 
 export const maxDuration = 120;
 
@@ -36,6 +43,11 @@ export async function POST(
       try {
         const history = await loadChat(tripId);
         await saveChatMessage(tripId, "user", message);
+
+        // Region (country) for disambiguating place lookups in the grounding
+        // tools. Loaded once; the queries append it to bare place names.
+        const region = await loadTripRegion(tripId);
+        const withRegion = (s: string) => (region ? `${s}, ${region}` : s);
 
         const messages: Anthropic.MessageParam[] = [
           ...history.map((m) => ({
@@ -98,6 +110,58 @@ export async function POST(
                 content: JSON.stringify({
                   surfaced: Array.isArray(suggestions) ? suggestions.length : 0,
                 }),
+              });
+            } else if (block.name === "verify_place") {
+              const { name } = block.input as { name: string };
+              const p = await placeLookup(withRegion(name));
+              toolResults.push({
+                type: "tool_result",
+                tool_use_id: block.id,
+                content: JSON.stringify(
+                  p.found
+                    ? {
+                        found: true,
+                        name: p.displayName,
+                        businessStatus: p.businessStatus ?? "OPERATIONAL",
+                      }
+                    : { found: false },
+                ),
+              });
+            } else if (block.name === "get_travel_time") {
+              const { origin, destination } = block.input as {
+                origin: string;
+                destination: string;
+              };
+              const [a, b] = await Promise.all([
+                placeLookup(withRegion(origin)),
+                placeLookup(withRegion(destination)),
+              ]);
+              let result: unknown;
+              if (a.lat == null || a.lng == null) {
+                result = { error: `Could not locate "${origin}".` };
+              } else if (b.lat == null || b.lng == null) {
+                result = { error: `Could not locate "${destination}".` };
+              } else {
+                const legs = await travelTimes([
+                  {
+                    key: "t",
+                    from: { lat: a.lat, lng: a.lng },
+                    to: { lat: b.lat, lng: b.lng },
+                  },
+                ]);
+                const leg = legs.t;
+                result = leg
+                  ? {
+                      durationMin: leg.durationMin,
+                      distanceMeters: leg.distanceMeters,
+                      mode: leg.mode,
+                    }
+                  : { error: "No route found between those places." };
+              }
+              toolResults.push({
+                type: "tool_result",
+                tool_use_id: block.id,
+                content: JSON.stringify(result),
               });
             }
           }

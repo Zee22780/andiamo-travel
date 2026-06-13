@@ -16,7 +16,10 @@ Core rules:
 - Respect geography and timing: keep each day's stops in a sensible order and time sequence after edits.
 - After acting, briefly tell the user what you changed (or proposed), in one or two warm, concrete sentences. Don't list every field.
 
-You cannot verify opening hours or prices — that's a separate layer. Don't claim a place is open or closed.`,
+Grounding (do not guess about real-world facts):
+- Before claiming a place exists, is open/closed, or is real, call verify_place. It returns whether the place resolves and its business_status (operational / temporarily or permanently closed). If a place can't be verified, say so honestly ("I couldn't confirm this one") rather than asserting it's open.
+- Before claiming how long it takes to get between two places, call get_travel_time. Don't invent walking or driving times.
+- You still can't see live prices or exact opening hours — don't state those as fact.`,
     cache_control: { type: "ephemeral" },
   },
 ];
@@ -90,6 +93,37 @@ export const COPILOT_TOOLS: Anthropic.Tool[] = [
         },
       },
       required: ["suggestions"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "verify_place",
+    description:
+      "Check whether a place is real and currently operating, via Google Places. Returns found, the resolved name, business_status (OPERATIONAL / CLOSED_TEMPORARILY / CLOSED_PERMANENTLY), and coordinates. Call before asserting a place exists or is open.",
+    input_schema: {
+      type: "object",
+      properties: {
+        name: {
+          type: "string",
+          description:
+            "Place name to verify, e.g. 'Livraria Lello'. The trip's city is added automatically.",
+        },
+      },
+      required: ["name"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "get_travel_time",
+    description:
+      "Real travel time between two places via Google Routes. Returns duration in minutes, distance, and mode (walk/drive, chosen by distance). Call before stating how long it takes to get between stops.",
+    input_schema: {
+      type: "object",
+      properties: {
+        origin: { type: "string", description: "Start place name." },
+        destination: { type: "string", description: "End place name." },
+      },
+      required: ["origin", "destination"],
       additionalProperties: false,
     },
   },

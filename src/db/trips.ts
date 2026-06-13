@@ -254,3 +254,11 @@ export async function loadCanvasTrip(
     })),
   };
 }
+
+// The trip's region/country (from intake) for disambiguating place lookups —
+// e.g. "Florence" → "Florence, Italy". Light query, no leg/day/stop tree.
+export async function loadTripRegion(tripId: string): Promise<string | null> {
+  const trip = await db.query.trips.findFirst({ where: eq(trips.id, tripId) });
+  const prefs = (trip?.preferences ?? {}) as { destination?: string | null };
+  return prefs.destination ?? null;
+}

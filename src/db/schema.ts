@@ -119,3 +119,21 @@ export const chatMessages = pgTable("chat_messages", {
     .notNull()
     .defaultNow(),
 });
+
+// Places API result cache — keyed by the normalized search query (title +
+// destination). Caches the durable fields (existence, place_id, coords,
+// business_status) with a TTL so the verify pass and the verify_place copilot
+// tool don't re-bill Places for the same lookup. Volatile data (open-now) is
+// fetched live, never cached. See notes/tech-brief.md §4.
+export const placesCache = pgTable("places_cache", {
+  query: text("query").primaryKey(),
+  found: boolean("found").notNull(),
+  placeId: text("place_id"),
+  displayName: text("display_name"),
+  businessStatus: text("business_status"),
+  lat: doublePrecision("lat"),
+  lng: doublePrecision("lng"),
+  fetchedAt: timestamp("fetched_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});

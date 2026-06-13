@@ -1,83 +1,20 @@
 import { eq } from "drizzle-orm";
+import { placeLookup } from "@/lib/places";
 import { db } from "./client";
 import { days, legs, stops, trips } from "./schema";
 
-// Trust layer (Google Places tier): resolve each AI-suggested place against the
-// Places API (New), store its place_id + coordinates, and badge the stop from
-// its live business_status:
+// Trust layer (Google Places tier): resolve each AI-suggested place via the
+// cached Places lookup, store its place_id + coordinates, and badge the stop
+// from its live business_status:
 //   OPERATIONAL / unknown → verified   (real place, open for business)
 //   CLOSED_TEMPORARILY / CLOSED_PERMANENTLY → flagged (needs replan)
 //   no confident match in the leg's metro → unverified (AI guess, no false flag)
 // Travel-time chips + the get_travel_time copilot tool use the Routes API and
 // live elsewhere — this module only does existence/status verification.
 
-type LngLat = [number, number]; // [lng, lat] — matches MapLibre + stops.lng/lat
-
-type PlaceMatch = {
-  placeId: string;
-  center: LngLat;
-  businessStatus: string | null; // OPERATIONAL | CLOSED_TEMPORARILY | CLOSED_PERMANENTLY | null
-};
-
-const PLACES_ENDPOINT = "https://places.googleapis.com/v1/places:searchText";
-const FIELD_MASK = [
-  "places.id",
-  "places.location",
-  "places.businessStatus",
-].join(",");
-
 // Bias each stop search toward the leg city so a same-named place in another
-// country doesn't win. The bias is a soft circle (~25km) around the city anchor.
-const BIAS_RADIUS_M = 25_000;
-// Defensive hard guard: even with the bias, drop matches that land far outside
-// the metro (likely the wrong place) rather than badge them.
+// country doesn't win, and drop matches that land far outside the metro.
 const MAX_DEG_FROM_ANCHOR = 0.4; // ~40km
-
-async function placesTextSearch(
-  query: string,
-  bias?: LngLat,
-): Promise<PlaceMatch | null> {
-  const key = process.env.GOOGLE_MAPS_API_KEY;
-  if (!key) return null;
-  const body: Record<string, unknown> = { textQuery: query, maxResultCount: 1 };
-  if (bias) {
-    body.locationBias = {
-      circle: {
-        center: { latitude: bias[1], longitude: bias[0] },
-        radius: BIAS_RADIUS_M,
-      },
-    };
-  }
-  try {
-    const res = await fetch(PLACES_ENDPOINT, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Goog-Api-Key": key,
-        "X-Goog-FieldMask": FIELD_MASK,
-      },
-      body: JSON.stringify(body),
-    });
-    if (!res.ok) return null;
-    const data = (await res.json()) as {
-      places?: {
-        id?: string;
-        location?: { latitude?: number; longitude?: number };
-        businessStatus?: string;
-      }[];
-    };
-    const p = data.places?.[0];
-    if (!p?.id || p.location?.latitude == null || p.location?.longitude == null)
-      return null;
-    return {
-      placeId: p.id,
-      center: [p.location.longitude, p.location.latitude],
-      businessStatus: p.businessStatus ?? null,
-    };
-  } catch {
-    return null;
-  }
-}
 
 export async function verifyTripPlaces(
   tripId: string,
@@ -108,8 +45,11 @@ export async function verifyTripPlaces(
 
   for (const leg of tripLegs) {
     // Anchor the leg city once, then bias every stop search toward it.
-    const anchor = await placesTextSearch(withRegion(leg.destination));
-    const bias = anchor?.center;
+    const anchor = await placeLookup(withRegion(leg.destination));
+    const bias =
+      anchor.found && anchor.lat != null && anchor.lng != null
+        ? { lat: anchor.lat, lng: anchor.lng }
+        : undefined;
     const legDays = await db.query.days.findMany({
       where: eq(days.legId, leg.id),
     });
@@ -124,7 +64,7 @@ export async function verifyTripPlaces(
         if (s.type !== "activity" && s.type !== "meal") continue;
         checked++;
 
-        const match = await placesTextSearch(
+        const match = await placeLookup(
           withRegion(`${s.title}, ${leg.destination}`),
           bias,
         );
@@ -138,16 +78,19 @@ export async function verifyTripPlaces(
         let lng: number | null = null;
 
         const inMetro =
-          match != null &&
+          match.found &&
+          match.lat != null &&
+          match.lng != null &&
           bias != null &&
-          Math.abs(match.center[0] - bias[0]) < MAX_DEG_FROM_ANCHOR &&
-          Math.abs(match.center[1] - bias[1]) < MAX_DEG_FROM_ANCHOR;
+          Math.abs(match.lng - bias.lng) < MAX_DEG_FROM_ANCHOR &&
+          Math.abs(match.lat - bias.lat) < MAX_DEG_FROM_ANCHOR;
         // If we couldn't anchor the city, accept the match on its own merits.
-        const accept = match != null && (bias == null || inMetro);
+        const accept = match.found && (bias == null || inMetro);
 
-        if (accept && match) {
+        if (accept) {
           placeId = match.placeId;
-          [lng, lat] = match.center;
+          lat = match.lat;
+          lng = match.lng;
           if (
             match.businessStatus === "CLOSED_PERMANENTLY" ||
             match.businessStatus === "CLOSED_TEMPORARILY"
