@@ -1,3 +1,5 @@
+import { PlacePhoto } from "@/components/place-photo";
+
 export const metadata = {
   title: "Andiamo — plan it, live it, adapt it",
   description:
@@ -30,6 +32,18 @@ export default function Home() {
     <main className="flex flex-1 flex-col">
       {/* Hero */}
       <section className="relative overflow-hidden bg-gradient-to-br from-[#0E7C6B] via-[#0c6a5b] to-[#0a4f44] text-white">
+        {/* travel photo behind a teal scrim for contrast (gradient fallback) */}
+        <PlacePhoto
+          query="Amalfi Coast Italy"
+          width={1280}
+          gradient=""
+          className="absolute inset-0"
+        >
+          <div
+            aria-hidden
+            className="absolute inset-0 bg-gradient-to-br from-[#0E7C6B]/70 via-[#0c6a5b]/45 to-[#0a4f44]/80"
+          />
+        </PlacePhoto>
         {/* warm accent glow */}
         <div
           aria-hidden

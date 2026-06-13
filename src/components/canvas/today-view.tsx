@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { PlacePhoto } from "@/components/place-photo";
 import type { DayWeather } from "@/lib/weather";
 import { cn } from "@/lib/utils";
 import { CanvasStop, CanvasTrip } from "./types";
@@ -345,9 +346,17 @@ function StopRow({
       >
         {stop.startTime ?? "—"}
       </span>
-      <span aria-hidden className="text-base leading-none">
-        {TYPE_ICONS[stop.type]}
-      </span>
+      <PlacePhoto
+        placeId={stop.placeId}
+        width={120}
+        gradient={status === "past" ? "bg-surface-variant" : "bg-primary/10"}
+        className="h-10 w-10 shrink-0 rounded-lg"
+        fallback={
+          <span aria-hidden className="text-base leading-none">
+            {TYPE_ICONS[stop.type]}
+          </span>
+        }
+      />
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-1.5">
           <span

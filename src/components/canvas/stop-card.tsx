@@ -1,5 +1,6 @@
 "use client";
 
+import { PlacePhoto } from "@/components/place-photo";
 import { cn } from "@/lib/utils";
 import { CanvasStop } from "./types";
 
@@ -84,9 +85,17 @@ export function StopCard({
         <span className="w-11 shrink-0 pt-0.5 font-mono text-xs text-on-surface-variant">
           {stop.startTime ?? "—"}
         </span>
-        <span aria-hidden className="text-sm">
-          {TYPE_ICONS[stop.type]}
-        </span>
+        <PlacePhoto
+          placeId={stop.placeId}
+          width={120}
+          gradient="bg-primary/10"
+          className="h-10 w-10 shrink-0 rounded-lg"
+          fallback={
+            <span aria-hidden className="text-base">
+              {TYPE_ICONS[stop.type]}
+            </span>
+          }
+        />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-1.5">
             <span className="text-sm font-semibold leading-tight">
