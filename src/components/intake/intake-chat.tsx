@@ -130,6 +130,9 @@ export function IntakeChat() {
             setDraftProgress((JSON.parse(data) as { chars: number }).chars);
           } else if (event === "itinerary") {
             setItinerary(JSON.parse(data) as PreviewItinerary);
+          } else if (event === "trip") {
+            const { tripId } = JSON.parse(data) as { tripId: string };
+            window.history.replaceState(null, "", `/trips/${tripId}`);
           } else if (event === "error") {
             throw new Error((JSON.parse(data) as { message: string }).message);
           }

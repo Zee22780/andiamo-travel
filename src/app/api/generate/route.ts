@@ -2,7 +2,8 @@ import Anthropic from "@anthropic-ai/sdk";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { NextRequest } from "next/server";
 import { GENERATE_SYSTEM } from "@/lib/ai/generate";
-import { ItinerarySchema } from "@/lib/ai/schemas";
+import { ItinerarySchema, TripSummary } from "@/lib/ai/schemas";
+import { saveItinerary } from "@/db/trips";
 
 export const maxDuration = 300;
 
@@ -60,6 +61,11 @@ export async function POST(req: NextRequest) {
           final.content.find((b) => b.type === "text")?.text ?? "";
         const itinerary = ItinerarySchema.parse(JSON.parse(text));
         send("itinerary", itinerary);
+        const tripId = await saveItinerary(
+          itinerary,
+          summary as Partial<TripSummary>,
+        );
+        send("trip", { tripId });
         send("done", {});
       } catch (error) {
         const message =
