@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Bricolage_Grotesque, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
+import { cn } from "@/lib/utils";
 
 const bricolage = Bricolage_Grotesque({
   variable: "--font-bricolage",
@@ -26,7 +27,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${bricolage.variable} ${jakarta.variable} h-full antialiased`}
+      className={cn("h-full", "antialiased", bricolage.variable, jakarta.variable, "font-sans")}
     >
       <body className="min-h-full flex flex-col">{children}</body>
     </html>
