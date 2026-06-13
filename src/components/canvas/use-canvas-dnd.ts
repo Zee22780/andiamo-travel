@@ -188,6 +188,9 @@ export function useCanvasDnd(initial: DayStops) {
     [dayStops],
   );
 
+  // Replace the whole board from fresh server state (after copilot edits).
+  const resync = useCallback((next: DayStops) => setDayStops(next), []);
+
   return {
     dayStops,
     activeStop,
@@ -198,5 +201,6 @@ export function useCanvasDnd(initial: DayStops) {
     addStop,
     updateStop,
     deleteStop,
+    resync,
   };
 }

@@ -1,9 +1,10 @@
 import { notFound } from "next/navigation";
 import { TripWorkspace } from "@/components/canvas/trip-workspace";
-import { CanvasTrip } from "@/components/canvas/types";
-import { loadTrip } from "@/db/trips";
+import { loadChat } from "@/db/chat";
+import { loadCanvasTrip } from "@/db/trips";
 
 export const metadata = { title: "Trip — Waypoint" };
+export const dynamic = "force-dynamic";
 
 export default async function TripPage({
   params,
@@ -11,37 +12,15 @@ export default async function TripPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const trip = await loadTrip(id).catch(() => null);
+  const trip = await loadCanvasTrip(id).catch(() => null);
   if (!trip) notFound();
 
-  const canvasTrip: CanvasTrip = {
-    id: trip.id,
-    name: trip.name,
-    legs: trip.legs.map((leg) => ({
-      id: leg.id,
-      destination: leg.destination,
-      startDate: leg.startDate,
-      endDate: leg.endDate,
-      lodging: leg.lodging,
-      days: leg.days.map((day) => ({
-        id: day.id,
-        date: day.date,
-        notes: day.notes,
-        stops: day.stops.map((stop) => ({
-          id: stop.id,
-          type: stop.type,
-          title: stop.title,
-          description: stop.description,
-          startTime: stop.startTime?.slice(0, 5) ?? null,
-          durationMin: stop.durationMin,
-          sortOrder: stop.sortOrder,
-          verification: stop.verification,
-          costEstimate: stop.costEstimate,
-          mustDo: stop.mustDo,
-        })),
-      })),
-    })),
-  };
+  const canvasTrip = trip;
+  const chat = await loadChat(id).catch(() => []);
+  const initialChat = chat.map((m) => ({
+    role: m.role as "user" | "assistant",
+    content: m.content,
+  }));
 
   const dateRange = trip.legs.length
     ? `${trip.legs[0].startDate} → ${trip.legs[trip.legs.length - 1].endDate}`
@@ -71,7 +50,11 @@ export default async function TripPage({
           Plan another trip
         </a>
       </header>
-      <TripWorkspace trip={canvasTrip} mapKey={process.env.MAPTILER_KEY ?? null} />
+      <TripWorkspace
+        trip={canvasTrip}
+        mapKey={process.env.MAPTILER_KEY ?? null}
+        initialChat={initialChat}
+      />
     </div>
   );
 }

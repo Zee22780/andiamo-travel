@@ -1,4 +1,5 @@
 import { asc, desc, eq, sql } from "drizzle-orm";
+import type { CanvasTrip } from "@/components/canvas/types";
 import type { Itinerary, TripSummary } from "@/lib/ai/schemas";
 import { db, DEMO_PROFILE_ID, ensureDemoProfile } from "./client";
 import { days, legs, stops, tripMembers, trips } from "./schema";
@@ -207,4 +208,41 @@ export async function loadTrip(tripId: string) {
   }
 
   return { ...trip, legs: result };
+}
+
+// Canvas-shaped projection of a trip (client-safe field set), shared by the
+// trip page and the copilot's resync endpoint.
+export async function loadCanvasTrip(
+  tripId: string,
+): Promise<CanvasTrip | null> {
+  const trip = await loadTrip(tripId);
+  if (!trip) return null;
+  return {
+    id: trip.id,
+    name: trip.name,
+    legs: trip.legs.map((leg) => ({
+      id: leg.id,
+      destination: leg.destination,
+      startDate: leg.startDate,
+      endDate: leg.endDate,
+      lodging: leg.lodging,
+      days: leg.days.map((day) => ({
+        id: day.id,
+        date: day.date,
+        notes: day.notes,
+        stops: day.stops.map((stop) => ({
+          id: stop.id,
+          type: stop.type,
+          title: stop.title,
+          description: stop.description,
+          startTime: stop.startTime?.slice(0, 5) ?? null,
+          durationMin: stop.durationMin,
+          sortOrder: stop.sortOrder,
+          verification: stop.verification,
+          costEstimate: stop.costEstimate,
+          mustDo: stop.mustDo,
+        })),
+      })),
+    })),
+  };
 }

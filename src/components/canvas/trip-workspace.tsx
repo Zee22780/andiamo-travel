@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { CopilotBar } from "./copilot-bar";
 import { MapPane } from "./map-pane";
 import { TripCanvas } from "./trip-canvas";
 import { CanvasTrip } from "./types";
@@ -9,9 +10,11 @@ import { buildDayStops, useCanvasDnd } from "./use-canvas-dnd";
 export function TripWorkspace({
   trip,
   mapKey,
+  initialChat,
 }: {
   trip: CanvasTrip;
   mapKey: string | null;
+  initialChat: { role: "user" | "assistant"; content: string }[];
 }) {
   const [activeLegId, setActiveLegId] = useState<string | null>(null);
   const firstDayId = trip.legs[0]?.days[0]?.id ?? null;
@@ -31,9 +34,22 @@ export function TripWorkspace({
 
   const focusedStops = focusedDayId ? (dnd.dayStops[focusedDayId] ?? []) : [];
 
+  // dayId -> "Destination · date" for suggestion cards
+  const dayLabels = useMemo(() => {
+    const out: Record<string, string> = {};
+    for (const leg of trip.legs) {
+      for (const day of leg.days) {
+        out[day.id] = `${leg.destination} · ${new Date(
+          `${day.date}T12:00:00`,
+        ).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
+      }
+    }
+    return out;
+  }, [trip]);
+
   return (
     <div className="flex min-h-0 flex-1">
-      <div className="flex w-[60%] min-w-0 flex-col border-r border-surface-variant">
+      <div className="relative flex w-[60%] min-w-0 flex-col border-r border-surface-variant">
         <TripCanvas
           trip={trip}
           dnd={dnd}
@@ -41,6 +57,12 @@ export function TripWorkspace({
           onSetLeg={setActiveLegId}
           focusedDayId={focusedDayId}
           onFocusDay={setFocusedDayId}
+        />
+        <CopilotBar
+          tripId={trip.id}
+          dnd={dnd}
+          dayLabels={dayLabels}
+          initialMessages={initialChat}
         />
       </div>
       <div className="relative w-[40%]">
