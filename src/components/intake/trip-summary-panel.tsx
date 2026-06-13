@@ -1,9 +1,22 @@
 "use client";
 
+import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { IntakeSummary } from "./types";
+
+// Number of summary fields we track, for the mobile progress indicator.
+function filledCount(summary: IntakeSummary): number {
+  return [
+    summary.destination,
+    summary.startDate && summary.endDate,
+    summary.travelers,
+    summary.budget,
+    summary.pace,
+    summary.interests.length > 0,
+  ].filter(Boolean).length;
+}
 
 const BUDGET_STEPS = ["shoestring", "mid", "comfortable", "luxury"] as const;
 const PACE_STEPS = ["relaxed", "balanced", "packed"] as const;
@@ -59,7 +72,7 @@ export function TripSummaryPanel({
   drafting: boolean;
 }) {
   return (
-    <aside className="flex w-[45%] flex-col gap-6 overflow-y-auto bg-white p-8">
+    <aside className="hidden w-[45%] flex-col gap-6 overflow-y-auto bg-white p-8 lg:flex">
       <h2 className="font-headline text-2xl font-bold">Trip so far</h2>
 
       <Row label="Destination">
@@ -152,5 +165,101 @@ export function TripSummaryPanel({
         )}
       </div>
     </aside>
+  );
+}
+
+function MiniField({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg bg-surface-warm px-3 py-2">
+      <div className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant/50">
+        {label}
+      </div>
+      <div className="mt-0.5 text-sm font-semibold capitalize">{value}</div>
+    </div>
+  );
+}
+
+// Mobile-only collapsible "Trip so far" card, pinned at the top of the intake
+// chat. Desktop keeps the full TripSummaryPanel aside (hidden below lg).
+export function MobileTripSummary({ summary }: { summary: IntakeSummary }) {
+  const [open, setOpen] = useState(false);
+  const filled = filledCount(summary);
+  const dates =
+    summary.startDate && summary.endDate
+      ? `${summary.startDate} → ${summary.endDate}`
+      : null;
+  const preview = summary.destination
+    ? [summary.destination, dates].filter(Boolean).join(" · ")
+    : "Tell me about your trip";
+
+  return (
+    <div className="shrink-0 border-b border-surface-variant bg-white lg:hidden">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="flex w-full items-center justify-between gap-2 px-4 py-3 text-left"
+      >
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="shrink-0 text-xs font-bold uppercase tracking-widest text-on-surface-variant/60">
+            Trip so far
+          </span>
+          <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-bold text-primary">
+            {filled} of 6
+          </span>
+          {!open && (
+            <span className="truncate text-sm text-on-surface-variant/80">
+              {preview}
+            </span>
+          )}
+        </div>
+        <span
+          aria-hidden
+          className={cn(
+            "shrink-0 text-on-surface-variant/70 transition-transform",
+            open && "rotate-180",
+          )}
+        >
+          ⌄
+        </span>
+      </button>
+
+      {open && (
+        <div className="space-y-2 px-4 pb-4">
+          <div className="grid grid-cols-2 gap-2">
+            <MiniField
+              label="Destination"
+              value={summary.destination ?? "—"}
+            />
+            <MiniField label="Dates" value={dates ?? "—"} />
+            <MiniField
+              label="Travelers"
+              value={summary.travelers ? String(summary.travelers) : "—"}
+            />
+            <MiniField label="Budget" value={summary.budget ?? "—"} />
+            <MiniField label="Pace" value={summary.pace ?? "—"} />
+            <MiniField
+              label="Interests"
+              value={
+                summary.interests.length > 0
+                  ? `${summary.interests.length} chosen`
+                  : "—"
+              }
+            />
+          </div>
+          {summary.interests.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {summary.interests.map((interest) => (
+                <Badge
+                  key={interest}
+                  variant="secondary"
+                  className="rounded-full capitalize"
+                >
+                  {interest}
+                </Badge>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   );
 }

@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { ItineraryPreview, PreviewItinerary } from "./itinerary-preview";
-import { TripSummaryPanel } from "./trip-summary-panel";
+import { MobileTripSummary, TripSummaryPanel } from "./trip-summary-panel";
 import { ChatMessage, EMPTY_SUMMARY, IntakeSummary } from "./types";
 
 const OPENER =
@@ -182,10 +182,16 @@ export function IntakeChat() {
   }
 
   return (
-    <div className="flex flex-1 overflow-hidden">
-      {/* Chat — left 55% */}
-      <section className="flex w-[55%] flex-col border-r border-surface-variant">
-        <div ref={scrollRef} className="flex-1 space-y-4 overflow-y-auto p-6">
+    <div className="flex flex-1 flex-col overflow-hidden lg:flex-row">
+      {/* Trip so far — collapsible card pinned at the top on mobile. */}
+      <MobileTripSummary summary={summary} />
+
+      {/* Chat — full-width on mobile, left 55% on desktop. */}
+      <section className="flex min-h-0 w-full flex-1 flex-col lg:w-[55%] lg:flex-none lg:border-r lg:border-surface-variant">
+        <div
+          ref={scrollRef}
+          className="flex-1 space-y-4 overflow-y-auto p-4 lg:p-6"
+        >
           {messages.map((m, i) => (
             <div
               key={i}
@@ -223,36 +229,50 @@ export function IntakeChat() {
           )}
         </div>
         {drafting && (
-          <div className="border-t border-surface-variant bg-primary/5 px-6 py-2 text-xs font-medium text-primary">
+          <div className="border-t border-surface-variant bg-primary/5 px-4 py-2 text-xs font-medium text-primary lg:px-6">
             Drafting your itinerary — this can take a minute or two for long
             trips{draftProgress > 0 ? ` (${draftProgress.toLocaleString()} characters so far)` : ""}…
           </div>
         )}
-        <form
-          className="flex gap-2 border-t border-surface-variant bg-white p-4"
-          onSubmit={(e) => {
-            e.preventDefault();
-            send(input);
-          }}
-        >
-          <Input
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="Reply to Andiamo…"
-            disabled={streaming}
-            className="rounded-full"
-          />
-          <Button
-            type="submit"
-            disabled={streaming || !input.trim()}
-            className="rounded-full px-6"
+        <div className="border-t border-surface-variant bg-white">
+          {/* Mobile-only draft button; desktop has it in the summary panel. */}
+          {summary.readyToGenerate && (
+            <div className="px-4 pt-3 lg:hidden">
+              <Button
+                onClick={draft}
+                disabled={drafting}
+                className="w-full rounded-full text-base font-bold"
+              >
+                {drafting ? "Drafting your itinerary…" : "Draft my itinerary"}
+              </Button>
+            </div>
+          )}
+          <form
+            className="flex gap-2 p-4"
+            onSubmit={(e) => {
+              e.preventDefault();
+              send(input);
+            }}
           >
-            Send
-          </Button>
-        </form>
+            <Input
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="Reply to Andiamo…"
+              disabled={streaming}
+              className="rounded-full"
+            />
+            <Button
+              type="submit"
+              disabled={streaming || !input.trim()}
+              className="rounded-full px-6"
+            >
+              Send
+            </Button>
+          </form>
+        </div>
       </section>
 
-      {/* Trip so far — right 45% */}
+      {/* Trip so far — right 45% on desktop (hidden on mobile). */}
       <TripSummaryPanel summary={summary} onDraft={draft} drafting={drafting} />
     </div>
   );
