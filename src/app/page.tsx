@@ -7,9 +7,12 @@ export default function Home() {
       <p className="max-w-md text-center text-on-surface-variant">
         An AI travel companion for long trips — plan it, live it, adapt it.
       </p>
-      <span className="rounded-full bg-primary/10 px-4 py-1.5 text-sm font-bold text-primary">
-        Milestone 0 — foundations
-      </span>
+      <a
+        href="/trips/new"
+        className="rounded-full bg-primary px-6 py-2.5 text-sm font-bold text-white transition-transform hover:opacity-90 active:scale-95"
+      >
+        Plan a new trip
+      </a>
     </main>
   );
 }

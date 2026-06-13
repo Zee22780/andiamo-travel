@@ -26,3 +26,6 @@ next-env.d.ts
 
 # vercel
 .vercel
+
+# playwright mcp artifacts
+.playwright-mcp/
