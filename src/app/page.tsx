@@ -55,20 +55,20 @@ export default function Home() {
           </span>
           <a
             href="/trips"
-            className="text-sm font-bold text-white/85 transition-colors hover:text-white"
+            className="text-sm font-bold text-white drop-shadow-sm transition-opacity hover:opacity-80"
           >
             Your trips
           </a>
         </div>
 
         <div className="relative mx-auto w-full max-w-5xl px-6 pb-16 pt-10 sm:pb-24 sm:pt-16 lg:pt-24">
-          <p className="mb-4 text-sm font-bold uppercase tracking-widest text-white/70">
+          <p className="mb-4 text-sm font-bold uppercase tracking-widest text-white drop-shadow-sm">
             Your AI travel companion
           </p>
           <h1 className="max-w-2xl font-headline text-5xl font-black leading-[1.05] sm:text-6xl lg:text-7xl">
             Plan it. Live it. Adapt it.
           </h1>
-          <p className="mt-5 max-w-xl text-lg leading-relaxed text-white/85">
+          <p className="mt-5 max-w-xl text-lg leading-relaxed text-white drop-shadow-sm">
             Andiamo plans a real multi-week trip with you, verifies every place,
             and stays useful after you board the plane.
           </p>
@@ -81,7 +81,7 @@ export default function Home() {
             </a>
             <a
               href="#how"
-              className="rounded-full border border-white/40 px-7 py-3.5 text-center text-base font-bold text-white transition-colors hover:bg-white/10"
+              className="rounded-full bg-accent px-7 py-3.5 text-center text-base font-bold text-white shadow-lg transition-transform hover:opacity-95 active:scale-95"
             >
               See how it works
             </a>
@@ -126,7 +126,7 @@ export default function Home() {
           <h2 className="font-headline text-3xl font-black sm:text-4xl">
             Where to next?
           </h2>
-          <p className="max-w-md text-white/85">
+          <p className="max-w-md text-white/95">
             Tell Andiamo where you're dreaming of, and watch a real plan take
             shape.
           </p>
