@@ -1,0 +1,28 @@
+# local-only working docs (per global rules)
+CLAUDE.md
+PLAN.md
+notes/
+.claude/
+
+# env / secrets
+.env
+.env.local
+.env.*.local
+
+# dependencies
+node_modules/
+
+# next.js
+.next/
+out/
+build/
+
+# misc
+.DS_Store
+*.pem
+npm-debug.log*
+*.tsbuildinfo
+next-env.d.ts
+
+# vercel
+.vercel
