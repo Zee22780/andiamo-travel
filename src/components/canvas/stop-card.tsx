@@ -39,17 +39,47 @@ export function VerificationBadge({
 export function StopCard({
   stop,
   dragging,
+  onEdit,
+  onDelete,
 }: {
   stop: CanvasStop;
   dragging?: boolean;
+  onEdit?: () => void;
+  onDelete?: () => void;
 }) {
+  // Buttons must swallow pointerdown so they don't start a drag.
+  const stop_ = (e: React.PointerEvent) => e.stopPropagation();
   return (
     <div
       className={cn(
-        "group rounded-xl border border-slate-100 bg-white p-3 shadow-sm transition-shadow hover:shadow-md",
+        "group relative rounded-xl border border-slate-100 bg-white p-3 shadow-sm transition-shadow hover:shadow-md",
         dragging && "rotate-1 shadow-xl ring-2 ring-primary/30",
       )}
     >
+      {(onEdit || onDelete) && (
+        <div className="absolute right-1.5 top-1.5 hidden gap-1 group-hover:flex">
+          {onEdit && (
+            <button
+              onPointerDown={stop_}
+              onClick={onEdit}
+              aria-label="Edit stop"
+              className="rounded-md p-1 text-on-surface-variant/60 hover:bg-surface-warm hover:text-primary"
+            >
+              ✎
+            </button>
+          )}
+          {onDelete && (
+            <button
+              onPointerDown={stop_}
+              onClick={onDelete}
+              aria-label="Delete stop"
+              className="rounded-md p-1 text-on-surface-variant/60 hover:bg-red-50 hover:text-red-600"
+            >
+              ✕
+            </button>
+          )}
+        </div>
+      )}
       <div className="flex items-start gap-2.5">
         <span className="w-11 shrink-0 pt-0.5 font-mono text-xs text-on-surface-variant">
           {stop.startTime ?? "—"}

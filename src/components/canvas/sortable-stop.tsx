@@ -5,7 +5,15 @@ import { CSS } from "@dnd-kit/utilities";
 import { StopCard } from "./stop-card";
 import { CanvasStop } from "./types";
 
-export function SortableStop({ stop }: { stop: CanvasStop }) {
+export function SortableStop({
+  stop,
+  onEdit,
+  onDelete,
+}: {
+  stop: CanvasStop;
+  onEdit?: () => void;
+  onDelete?: () => void;
+}) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: stop.id });
 
@@ -17,7 +25,7 @@ export function SortableStop({ stop }: { stop: CanvasStop }) {
       {...attributes}
       {...listeners}
     >
-      <StopCard stop={stop} />
+      <StopCard stop={stop} onEdit={onEdit} onDelete={onDelete} />
     </div>
   );
 }

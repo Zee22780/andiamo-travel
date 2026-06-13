@@ -121,5 +121,82 @@ export function useCanvasDnd(initial: DayStops) {
     [dayStops],
   );
 
-  return { dayStops, activeStop, sensors, onDragStart, onDragOver, onDragEnd };
+  const addStop = useCallback(
+    async (dayId: string, fields: { title: string; type: CanvasStop["type"] }) => {
+      try {
+        const res = await fetch("/api/stops", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ dayId, ...fields }),
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const { stop } = (await res.json()) as { stop: CanvasStop };
+        setDayStops((prev) => ({
+          ...prev,
+          [dayId]: [...(prev[dayId] ?? []), stop],
+        }));
+      } catch {
+        // no-op: surfaced by the form staying open on failure
+      }
+    },
+    [],
+  );
+
+  const updateStop = useCallback(
+    async (stopId: string, patch: Partial<CanvasStop>) => {
+      const before = dayStops;
+      setDayStops((prev) => {
+        const next: DayStops = {};
+        for (const [dayId, list] of Object.entries(prev)) {
+          next[dayId] = list.map((s) =>
+            s.id === stopId ? { ...s, ...patch } : s,
+          );
+        }
+        return next;
+      });
+      try {
+        const res = await fetch(`/api/stops/${stopId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(patch),
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      } catch {
+        setDayStops(before);
+      }
+    },
+    [dayStops],
+  );
+
+  const deleteStop = useCallback(
+    async (stopId: string) => {
+      const before = dayStops;
+      setDayStops((prev) => {
+        const next: DayStops = {};
+        for (const [dayId, list] of Object.entries(prev)) {
+          next[dayId] = list.filter((s) => s.id !== stopId);
+        }
+        return next;
+      });
+      try {
+        const res = await fetch(`/api/stops/${stopId}`, { method: "DELETE" });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      } catch {
+        setDayStops(before);
+      }
+    },
+    [dayStops],
+  );
+
+  return {
+    dayStops,
+    activeStop,
+    sensors,
+    onDragStart,
+    onDragOver,
+    onDragEnd,
+    addStop,
+    updateStop,
+    deleteStop,
+  };
 }

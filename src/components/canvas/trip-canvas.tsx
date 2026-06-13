@@ -31,8 +31,17 @@ export function TripCanvas({
   focusedDayId: string | null;
   onFocusDay: (id: string) => void;
 }) {
-  const { dayStops, activeStop, sensors, onDragStart, onDragOver, onDragEnd } =
-    dnd;
+  const {
+    dayStops,
+    activeStop,
+    sensors,
+    onDragStart,
+    onDragOver,
+    onDragEnd,
+    addStop,
+    updateStop,
+    deleteStop,
+  } = dnd;
 
   const allDays = useMemo(
     () =>
@@ -110,6 +119,9 @@ export function TripCanvas({
               dateLabel={formatDay(day.date)}
               focused={focusedDayId === day.id}
               onFocus={() => onFocusDay(day.id)}
+              onAddStop={addStop}
+              onUpdateStop={updateStop}
+              onDeleteStop={deleteStop}
             />
           ))}
         </div>
