@@ -1,7 +1,7 @@
 "use client";
 
 import { DndContext, DragOverlay, closestCorners } from "@dnd-kit/core";
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { cn } from "@/lib/utils";
 import { DayColumn } from "./day-column";
 import { dayPacing } from "./pacing";
@@ -29,6 +29,7 @@ export function TripCanvas({
   onVerify,
   verifying,
   travelLegs,
+  isDesktop,
 }: {
   trip: CanvasTrip;
   dnd: CanvasDndState;
@@ -40,6 +41,7 @@ export function TripCanvas({
   onVerify: () => void;
   verifying: boolean;
   travelLegs: TravelLegMap;
+  isDesktop: boolean | null;
 }) {
   const {
     dayStops,
@@ -71,6 +73,46 @@ export function TripCanvas({
   const visibleDays = activeLegId
     ? allDays.filter(({ leg }) => leg.id === activeLegId)
     : allDays;
+
+  // On mobile we show one day at a time. Resolve the focused entry within the
+  // currently visible days, falling back to the first (e.g. after a leg filter
+  // moves the focus off-screen).
+  const mobileEntry =
+    visibleDays.find(({ day }) => day.id === focusedDayId) ??
+    visibleDays[0] ??
+    null;
+  const mobileIndex = mobileEntry
+    ? visibleDays.findIndex(({ day }) => day.id === mobileEntry.day.id)
+    : -1;
+
+  // Keep the shared focus (which drives the map sheet) in sync with the day the
+  // mobile view actually shows.
+  useEffect(() => {
+    if (
+      isDesktop === false &&
+      mobileEntry &&
+      mobileEntry.day.id !== focusedDayId
+    ) {
+      onFocusDay(mobileEntry.day.id);
+    }
+  }, [isDesktop, mobileEntry, focusedDayId, onFocusDay]);
+
+  // Desktop renders the whole board; mobile renders just the focused day. While
+  // the breakpoint is still unknown (`null`), render the board so SSR and the
+  // first client render agree.
+  const renderedDays =
+    isDesktop === false && mobileEntry ? [mobileEntry] : visibleDays;
+
+  // Auto-scroll the active day chip into view on the mobile navigator.
+  const dayNavRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (isDesktop === false && dayNavRef.current) {
+      const active = dayNavRef.current.querySelector<HTMLElement>(
+        '[data-active="true"]',
+      );
+      active?.scrollIntoView({ inline: "center", block: "nearest" });
+    }
+  }, [isDesktop, focusedDayId]);
 
   // Build a concrete, day-scoped trim request the copilot can act on
   // surgically (it resolves ids via get_trip_state).
@@ -134,6 +176,65 @@ export function TripCanvas({
         </button>
       </div>
 
+      {/* Day navigator (mobile only) — swap the single visible day. */}
+      <div className="flex shrink-0 items-center gap-1 border-b border-surface-variant bg-surface-warm px-2 py-2 lg:hidden">
+        <button
+          onClick={() => {
+            const prev = visibleDays[mobileIndex - 1];
+            if (prev) onFocusDay(prev.day.id);
+          }}
+          disabled={mobileIndex <= 0}
+          aria-label="Previous day"
+          className="shrink-0 rounded-full px-2 py-1 text-on-surface-variant disabled:opacity-30"
+        >
+          ‹
+        </button>
+        <div
+          ref={dayNavRef}
+          className="flex flex-1 items-center gap-2 overflow-x-auto scroll-smooth"
+        >
+          {visibleDays.map(({ leg, day, dayNumber }) => {
+            const active = mobileEntry?.day.id === day.id;
+            return (
+              <button
+                key={day.id}
+                data-active={active}
+                onClick={() => onFocusDay(day.id)}
+                className={cn(
+                  "flex shrink-0 flex-col items-start rounded-lg px-3 py-1.5 text-left transition-colors",
+                  active
+                    ? "bg-primary text-white"
+                    : "bg-white text-on-surface-variant",
+                )}
+              >
+                <span className="text-sm font-bold leading-tight">
+                  Day {dayNumber}
+                </span>
+                <span
+                  className={cn(
+                    "text-[11px] leading-tight",
+                    active ? "text-white/80" : "text-on-surface-variant/70",
+                  )}
+                >
+                  {leg.destination} · {formatDay(day.date)}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+        <button
+          onClick={() => {
+            const next = visibleDays[mobileIndex + 1];
+            if (next) onFocusDay(next.day.id);
+          }}
+          disabled={mobileIndex < 0 || mobileIndex >= visibleDays.length - 1}
+          aria-label="Next day"
+          className="shrink-0 rounded-full px-2 py-1 text-on-surface-variant disabled:opacity-30"
+        >
+          ›
+        </button>
+      </div>
+
       {/* Day columns */}
       <DndContext
         id="trip-canvas-dnd"
@@ -144,7 +245,7 @@ export function TripCanvas({
         onDragEnd={onDragEnd}
       >
         <div className="flex flex-1 items-start gap-4 overflow-x-auto p-4 lg:gap-5 lg:p-6">
-          {visibleDays.map(({ leg, day, dayNumber }) => (
+          {renderedDays.map(({ leg, day, dayNumber }) => (
             <DayColumn
               key={day.id}
               leg={leg}

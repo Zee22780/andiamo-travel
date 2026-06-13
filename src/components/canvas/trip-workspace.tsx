@@ -4,9 +4,11 @@ import { useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
 import { CopilotBar } from "./copilot-bar";
 import { MapPane } from "./map-pane";
+import { MapSheet } from "./map-sheet";
 import { TodayView } from "./today-view";
 import { TripCanvas } from "./trip-canvas";
 import { CanvasTrip } from "./types";
+import { useIsDesktop } from "./use-is-desktop";
 import { buildDayStops, useCanvasDnd } from "./use-canvas-dnd";
 import { useTravelTimes } from "./use-travel-times";
 
@@ -28,6 +30,7 @@ export function TripWorkspace({
   const [activeLegId, setActiveLegId] = useState<string | null>(null);
   const firstDayId = trip.legs[0]?.days[0]?.id ?? null;
   const [focusedDayId, setFocusedDayId] = useState<string | null>(firstDayId);
+  const isDesktop = useIsDesktop();
 
   // Plan ↔ Today (companion) toggle. Default to Today only while the trip is
   // actually live, so planning trips open on the canvas.
@@ -192,39 +195,59 @@ export function TripWorkspace({
           replanning={replanning}
         />
       ) : (
-        <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
-          <div className="relative flex min-h-0 min-w-0 flex-1 flex-col border-b border-surface-variant lg:w-[60%] lg:flex-none lg:border-b-0 lg:border-r">
-            <TripCanvas
-              trip={trip}
-              dnd={dnd}
-              activeLegId={activeLegId}
-              onSetLeg={setActiveLegId}
-              focusedDayId={focusedDayId}
-              onFocusDay={setFocusedDayId}
-              onAskCopilot={askCopilot}
-              onVerify={verifyPlaces}
-              verifying={verifying}
-              travelLegs={travelLegs}
-            />
-            <CopilotBar
-              tripId={trip.id}
-              dnd={dnd}
-              dayLabels={dayLabels}
-              initialMessages={initialChat}
-              request={copilotRequest}
-            />
-          </div>
-          {/* Map: a strip below the canvas on mobile, a side panel on desktop. */}
-          <div className="relative h-64 shrink-0 lg:h-auto lg:w-[40%]">
-            {mapKey ? (
-              <MapPane mapKey={mapKey} stops={focusedStops} near={focusedNear} />
-            ) : (
-              <div className="flex h-full items-center justify-center bg-surface-warm p-6 text-center text-sm text-on-surface-variant/60">
-                Add a MapTiler key to enable the map.
+        <>
+          <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
+            <div className="relative flex min-h-0 min-w-0 flex-1 flex-col lg:w-[60%] lg:flex-none lg:border-r lg:border-surface-variant">
+              <TripCanvas
+                trip={trip}
+                dnd={dnd}
+                activeLegId={activeLegId}
+                onSetLeg={setActiveLegId}
+                focusedDayId={focusedDayId}
+                onFocusDay={setFocusedDayId}
+                onAskCopilot={askCopilot}
+                onVerify={verifyPlaces}
+                verifying={verifying}
+                travelLegs={travelLegs}
+                isDesktop={isDesktop}
+              />
+              <CopilotBar
+                tripId={trip.id}
+                dnd={dnd}
+                dayLabels={dayLabels}
+                initialMessages={initialChat}
+                request={copilotRequest}
+              />
+            </div>
+            {/* Map: always-on side panel on desktop. On mobile it lives in a
+                bottom sheet (below) so it doesn't steal canvas height. */}
+            {isDesktop && (
+              <div className="relative hidden shrink-0 lg:block lg:w-[40%]">
+                {mapKey ? (
+                  <MapPane
+                    mapKey={mapKey}
+                    stops={focusedStops}
+                    near={focusedNear}
+                  />
+                ) : (
+                  <div className="flex h-full items-center justify-center bg-surface-warm p-6 text-center text-sm text-on-surface-variant/60">
+                    Add a MapTiler key to enable the map.
+                  </div>
+                )}
               </div>
             )}
           </div>
-        </div>
+          {isDesktop === false && (
+            <MapSheet
+              mapKey={mapKey}
+              stops={focusedStops}
+              near={focusedNear}
+              dayLabel={
+                focusedDayId ? (dayLabels[focusedDayId] ?? null) : null
+              }
+            />
+          )}
+        </>
       )}
     </div>
   );

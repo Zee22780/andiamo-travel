@@ -60,7 +60,7 @@ export function DayColumn({
   const { overpacked, activeMin, stopCount } = dayPacing(stops, pace);
 
   return (
-    <div className="flex w-[320px] shrink-0 flex-col gap-3">
+    <div className="flex w-full shrink-0 flex-col gap-3 lg:w-[320px]">
       <button
         onClick={onFocus}
         className={cn(
