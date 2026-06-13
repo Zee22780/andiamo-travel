@@ -127,6 +127,57 @@ export async function saveItinerary(
   });
 }
 
+export type StopOperation =
+  | {
+      type: "edit";
+      stopId: string;
+      title?: string;
+      startTime?: string;
+      durationMin?: number;
+      stopType?: "activity" | "meal" | "lodging" | "transit";
+      mustDo?: boolean;
+    }
+  | { type: "move"; stopId: string; dayId?: string; sortOrder?: number }
+  | { type: "delete"; stopId: string };
+
+// Applies copilot update_stops operations. User-directed edits mark the stop
+// source=user/verified (no outstanding AI claim).
+export async function applyStopOperations(
+  ops: StopOperation[],
+): Promise<{ applied: number }> {
+  let applied = 0;
+  await db.transaction(async (tx) => {
+    for (const op of ops) {
+      if (op.type === "delete") {
+        await tx.delete(stops).where(eq(stops.id, op.stopId));
+        applied++;
+      } else if (op.type === "move") {
+        const set: Record<string, unknown> = {};
+        if (op.dayId) set.dayId = op.dayId;
+        if (op.sortOrder != null) set.sortOrder = op.sortOrder;
+        if (Object.keys(set).length) {
+          await tx.update(stops).set(set).where(eq(stops.id, op.stopId));
+          applied++;
+        }
+      } else {
+        const set: Record<string, unknown> = {
+          source: "user",
+          verification: "verified",
+        };
+        if (op.title != null) set.title = op.title;
+        if (op.startTime !== undefined)
+          set.startTime = op.startTime === "" ? null : op.startTime;
+        if (op.durationMin != null) set.durationMin = op.durationMin;
+        if (op.stopType != null) set.type = op.stopType;
+        if (op.mustDo != null) set.mustDo = op.mustDo;
+        await tx.update(stops).set(set).where(eq(stops.id, op.stopId));
+        applied++;
+      }
+    }
+  });
+  return { applied };
+}
+
 export async function loadTrip(tripId: string) {
   const trip = await db.query.trips.findFirst({
     where: eq(trips.id, tripId),
