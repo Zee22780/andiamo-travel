@@ -2,46 +2,93 @@ import { eq } from "drizzle-orm";
 import { db } from "./client";
 import { days, legs, stops, trips } from "./schema";
 
-// Trust layer (MapTiler tier): confirm AI-suggested places resolve to a real
-// location near the leg's city, store their coordinates, and badge each stop
-// Verified / Flagged. Opening hours + business_status + travel-time need a POI/
-// routing provider (e.g. Google Places/Routes) and are deferred — see PLAN.md.
+// Trust layer (Google Places tier): resolve each AI-suggested place against the
+// Places API (New), store its place_id + coordinates, and badge the stop from
+// its live business_status:
+//   OPERATIONAL / unknown → verified   (real place, open for business)
+//   CLOSED_TEMPORARILY / CLOSED_PERMANENTLY → flagged (needs replan)
+//   no confident match in the leg's metro → unverified (AI guess, no false flag)
+// Travel-time chips + the get_travel_time copilot tool use the Routes API and
+// live elsewhere — this module only does existence/status verification.
 
-type LngLat = [number, number];
+type LngLat = [number, number]; // [lng, lat] — matches MapLibre + stops.lng/lat
 
-async function mtGeocode(
+type PlaceMatch = {
+  placeId: string;
+  center: LngLat;
+  businessStatus: string | null; // OPERATIONAL | CLOSED_TEMPORARILY | CLOSED_PERMANENTLY | null
+};
+
+const PLACES_ENDPOINT = "https://places.googleapis.com/v1/places:searchText";
+const FIELD_MASK = [
+  "places.id",
+  "places.location",
+  "places.businessStatus",
+].join(",");
+
+// Bias each stop search toward the leg city so a same-named place in another
+// country doesn't win. The bias is a soft circle (~25km) around the city anchor.
+const BIAS_RADIUS_M = 25_000;
+// Defensive hard guard: even with the bias, drop matches that land far outside
+// the metro (likely the wrong place) rather than badge them.
+const MAX_DEG_FROM_ANCHOR = 0.4; // ~40km
+
+async function placesTextSearch(
   query: string,
-): Promise<{ center: LngLat; relevance: number } | null> {
-  const url = `https://api.maptiler.com/geocoding/${encodeURIComponent(
-    query,
-  )}.json?key=${process.env.MAPTILER_KEY}&limit=1`;
+  bias?: LngLat,
+): Promise<PlaceMatch | null> {
+  const key = process.env.GOOGLE_MAPS_API_KEY;
+  if (!key) return null;
+  const body: Record<string, unknown> = { textQuery: query, maxResultCount: 1 };
+  if (bias) {
+    body.locationBias = {
+      circle: {
+        center: { latitude: bias[1], longitude: bias[0] },
+        radius: BIAS_RADIUS_M,
+      },
+    };
+  }
   try {
-    const res = await fetch(url);
+    const res = await fetch(PLACES_ENDPOINT, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Goog-Api-Key": key,
+        "X-Goog-FieldMask": FIELD_MASK,
+      },
+      body: JSON.stringify(body),
+    });
     if (!res.ok) return null;
     const data = (await res.json()) as {
-      features?: { center?: LngLat; relevance?: number }[];
+      places?: {
+        id?: string;
+        location?: { latitude?: number; longitude?: number };
+        businessStatus?: string;
+      }[];
     };
-    const f = data.features?.[0];
-    if (!f?.center) return null;
-    return { center: f.center, relevance: f.relevance ?? 0 };
+    const p = data.places?.[0];
+    if (!p?.id || p.location?.latitude == null || p.location?.longitude == null)
+      return null;
+    return {
+      placeId: p.id,
+      center: [p.location.longitude, p.location.latitude],
+      businessStatus: p.businessStatus ?? null,
+    };
   } catch {
     return null;
   }
 }
 
-// A confident match: the geocoder is reasonably sure AND the result sits inside
-// the leg city's metro area (not a same-named place elsewhere).
-const MIN_RELEVANCE = 0.8;
-const MAX_DEG_FROM_ANCHOR = 0.2; // ~20km — within the destination metro
-// When the geocoder can't find a POI it falls back to the city centroid (≈ the
-// anchor itself). That's not a real match — treat it as not found.
-const CENTROID_EPSILON = 0.01; // ~1km
-
 export async function verifyTripPlaces(
   tripId: string,
-): Promise<{ checked: number; verified: number; unconfirmed: number }> {
-  const empty = { checked: 0, verified: 0, unconfirmed: 0 };
-  if (!process.env.MAPTILER_KEY) return empty;
+): Promise<{
+  checked: number;
+  verified: number;
+  flagged: number;
+  unconfirmed: number;
+}> {
+  const empty = { checked: 0, verified: 0, flagged: 0, unconfirmed: 0 };
+  if (!process.env.GOOGLE_MAPS_API_KEY) return empty;
 
   const trip = await db.query.trips.findFirst({ where: eq(trips.id, tripId) });
   if (!trip) return empty;
@@ -56,10 +103,13 @@ export async function verifyTripPlaces(
 
   let checked = 0;
   let verified = 0;
+  let flagged = 0;
   let unconfirmed = 0;
 
   for (const leg of tripLegs) {
-    const anchor = await mtGeocode(withRegion(leg.destination));
+    // Anchor the leg city once, then bias every stop search toward it.
+    const anchor = await placesTextSearch(withRegion(leg.destination));
+    const bias = anchor?.center;
     const legDays = await db.query.days.findMany({
       where: eq(days.legId, leg.id),
     });
@@ -74,37 +124,58 @@ export async function verifyTripPlaces(
         if (s.type !== "activity" && s.type !== "meal") continue;
         checked++;
 
-        const g = await mtGeocode(withRegion(`${s.title}, ${leg.destination}`));
-        // Promote to verified only on a confident, in-metro, non-centroid
-        // match. Anything we can't confirm stays "unverified" (AI guess) — we
-        // don't flag it, because MapTiler not finding a POI doesn't mean the
-        // place is bad. Genuine flagging (closed/nonexistent) needs a Places
-        // API — deferred. See PLAN.md.
-        let status: "verified" | "unverified" = "unverified";
+        const match = await placesTextSearch(
+          withRegion(`${s.title}, ${leg.destination}`),
+          bias,
+        );
+
+        // No match, or a match that landed outside the metro (likely a wrong
+        // same-named place): stays "unverified" (AI guess). We don't flag it —
+        // a missing match doesn't mean the place is bad.
+        let status: "verified" | "flagged" | "unverified" = "unverified";
+        let placeId: string | null = null;
         let lat: number | null = null;
         let lng: number | null = null;
-        if (g && anchor) {
-          const dLng = Math.abs(g.center[0] - anchor.center[0]);
-          const dLat = Math.abs(g.center[1] - anchor.center[1]);
-          const isCentroidFallback =
-            dLng < CENTROID_EPSILON && dLat < CENTROID_EPSILON;
-          const inMetro =
-            dLng < MAX_DEG_FROM_ANCHOR && dLat < MAX_DEG_FROM_ANCHOR;
-          if (g.relevance >= MIN_RELEVANCE && inMetro && !isCentroidFallback) {
+
+        const inMetro =
+          match != null &&
+          bias != null &&
+          Math.abs(match.center[0] - bias[0]) < MAX_DEG_FROM_ANCHOR &&
+          Math.abs(match.center[1] - bias[1]) < MAX_DEG_FROM_ANCHOR;
+        // If we couldn't anchor the city, accept the match on its own merits.
+        const accept = match != null && (bias == null || inMetro);
+
+        if (accept && match) {
+          placeId = match.placeId;
+          [lng, lat] = match.center;
+          if (
+            match.businessStatus === "CLOSED_PERMANENTLY" ||
+            match.businessStatus === "CLOSED_TEMPORARILY"
+          ) {
+            status = "flagged";
+          } else {
+            // OPERATIONAL or unknown — it's a real, operating place.
             status = "verified";
-            [lng, lat] = g.center;
           }
         }
+
         if (status === "verified") verified++;
+        else if (status === "flagged") flagged++;
         else unconfirmed++;
 
         await db
           .update(stops)
-          .set({ verification: status, verifiedAt: new Date(), lat, lng })
+          .set({
+            verification: status,
+            verifiedAt: new Date(),
+            placeId,
+            lat,
+            lng,
+          })
           .where(eq(stops.id, s.id));
       }
     }
   }
 
-  return { checked, verified, unconfirmed };
+  return { checked, verified, flagged, unconfirmed };
 }
