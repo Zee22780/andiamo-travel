@@ -49,7 +49,15 @@ function StepMeter<T extends string>({
   );
 }
 
-export function TripSummaryPanel({ summary }: { summary: IntakeSummary }) {
+export function TripSummaryPanel({
+  summary,
+  onDraft,
+  drafting,
+}: {
+  summary: IntakeSummary;
+  onDraft: () => void;
+  drafting: boolean;
+}) {
   return (
     <aside className="flex w-[45%] flex-col gap-6 overflow-y-auto bg-white p-8">
       <h2 className="font-headline text-2xl font-bold">Trip so far</h2>
@@ -131,10 +139,11 @@ export function TripSummaryPanel({ summary }: { summary: IntakeSummary }) {
       <div className="mt-auto pt-4">
         <Button
           size="lg"
-          disabled={!summary.readyToGenerate}
+          disabled={!summary.readyToGenerate || drafting}
+          onClick={onDraft}
           className="w-full rounded-full text-base font-bold"
         >
-          Draft my itinerary
+          {drafting ? "Drafting your itinerary…" : "Draft my itinerary"}
         </Button>
         {!summary.readyToGenerate && (
           <p className="mt-2 text-center text-xs text-on-surface-variant/60">

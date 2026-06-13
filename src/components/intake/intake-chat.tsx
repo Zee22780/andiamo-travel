@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { ItineraryPreview, PreviewItinerary } from "./itinerary-preview";
 import { TripSummaryPanel } from "./trip-summary-panel";
 import { ChatMessage, EMPTY_SUMMARY, IntakeSummary } from "./types";
 
@@ -17,6 +18,9 @@ export function IntakeChat() {
   const [summary, setSummary] = useState<IntakeSummary>(EMPTY_SUMMARY);
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
+  const [drafting, setDrafting] = useState(false);
+  const [draftProgress, setDraftProgress] = useState(0);
+  const [itinerary, setItinerary] = useState<PreviewItinerary | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -96,6 +100,59 @@ export function IntakeChat() {
     [messages, streaming],
   );
 
+  const draft = useCallback(async () => {
+    if (drafting) return;
+    setDrafting(true);
+    setDraftProgress(0);
+    try {
+      const res = await fetch("/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ summary }),
+      });
+      if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        let sep;
+        while ((sep = buffer.indexOf("\n\n")) !== -1) {
+          const frame = buffer.slice(0, sep);
+          buffer = buffer.slice(sep + 2);
+          const event = frame.match(/^event: (.*)$/m)?.[1];
+          const data = frame.match(/^data: (.*)$/m)?.[1];
+          if (!event || !data) continue;
+          if (event === "progress") {
+            setDraftProgress((JSON.parse(data) as { chars: number }).chars);
+          } else if (event === "itinerary") {
+            setItinerary(JSON.parse(data) as PreviewItinerary);
+          } else if (event === "error") {
+            throw new Error((JSON.parse(data) as { message: string }).message);
+          }
+        }
+      }
+    } catch {
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          content:
+            "Drafting hit a snag — give it another try in a moment, or keep refining the trip.",
+        },
+      ]);
+    } finally {
+      setDrafting(false);
+    }
+  }, [drafting, summary]);
+
+  if (itinerary) {
+    return <ItineraryPreview itinerary={itinerary} />;
+  }
+
   return (
     <div className="flex flex-1 overflow-hidden">
       {/* Chat — left 55% */}
@@ -132,6 +189,12 @@ export function IntakeChat() {
             </div>
           )}
         </div>
+        {drafting && (
+          <div className="border-t border-surface-variant bg-primary/5 px-6 py-2 text-xs font-medium text-primary">
+            Drafting your itinerary — this can take a minute or two for long
+            trips{draftProgress > 0 ? ` (${draftProgress.toLocaleString()} characters so far)` : ""}…
+          </div>
+        )}
         <form
           className="flex gap-2 border-t border-surface-variant bg-white p-4"
           onSubmit={(e) => {
@@ -157,7 +220,7 @@ export function IntakeChat() {
       </section>
 
       {/* Trip so far — right 45% */}
-      <TripSummaryPanel summary={summary} />
+      <TripSummaryPanel summary={summary} onDraft={draft} drafting={drafting} />
     </div>
   );
 }
