@@ -217,11 +217,15 @@ export async function loadCanvasTrip(
 ): Promise<CanvasTrip | null> {
   const trip = await loadTrip(tripId);
   if (!trip) return null;
-  const prefs = (trip.preferences ?? {}) as { destination?: string | null };
+  const prefs = (trip.preferences ?? {}) as {
+    destination?: string | null;
+    pace?: "relaxed" | "balanced" | "packed" | null;
+  };
   return {
     id: trip.id,
     name: trip.name,
     region: prefs.destination ?? null,
+    pace: prefs.pace ?? null,
     legs: trip.legs.map((leg) => ({
       id: leg.id,
       destination: leg.destination,

@@ -34,5 +34,6 @@ export type CanvasTrip = {
   id: string;
   name: string;
   region: string | null; // country/region for geocoding disambiguation
+  pace: "relaxed" | "balanced" | "packed" | null; // drives overpacked-day detection
   legs: CanvasLeg[];
 };

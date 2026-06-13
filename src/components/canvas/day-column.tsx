@@ -7,6 +7,7 @@ import {
 } from "@dnd-kit/sortable";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
+import { dayPacing, type Pace } from "./pacing";
 import { SortableStop } from "./sortable-stop";
 import { StopDraft, StopEditor } from "./stop-editor";
 import { CanvasDay, CanvasLeg, CanvasStop } from "./types";
@@ -28,26 +29,31 @@ export function DayColumn({
   dayNumber,
   stops,
   dateLabel,
+  pace,
   focused,
   onFocus,
   onAddStop,
   onUpdateStop,
   onDeleteStop,
+  onFixDay,
 }: {
   leg: CanvasLeg;
   day: CanvasDay;
   dayNumber: number;
   stops: CanvasStop[];
   dateLabel: string;
+  pace: Pace | null;
   focused: boolean;
   onFocus: () => void;
   onAddStop: (dayId: string, fields: { title: string; type: CanvasStop["type"] }) => void;
   onUpdateStop: (stopId: string, patch: Partial<CanvasStop>) => void;
   onDeleteStop: (stopId: string) => void;
+  onFixDay: () => void;
 }) {
   const { setNodeRef } = useDroppable({ id: day.id });
   const [adding, setAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const { overpacked, activeMin, stopCount } = dayPacing(stops, pace);
 
   return (
     <div className="flex w-[320px] shrink-0 flex-col gap-3">
@@ -72,6 +78,21 @@ export function DayColumn({
           </p>
         )}
       </button>
+
+      {overpacked && (
+        <div className="flex items-center justify-between gap-2 rounded-lg border border-accent/30 bg-accent/10 px-2.5 py-1.5">
+          <span className="text-xs font-semibold text-accent">
+            Overpacked · {stopCount} stops
+            {activeMin > 0 ? `, ~${Math.round(activeMin / 60)}h` : ""}
+          </span>
+          <button
+            onClick={onFixDay}
+            className="shrink-0 rounded-full bg-accent px-2.5 py-1 text-[11px] font-bold text-white transition-opacity hover:opacity-90 active:scale-95"
+          >
+            Fix this day
+          </button>
+        </div>
+      )}
 
       <SortableContext
         items={stops.map((s) => s.id)}

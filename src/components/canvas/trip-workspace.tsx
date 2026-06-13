@@ -20,6 +20,16 @@ export function TripWorkspace({
   const firstDayId = trip.legs[0]?.days[0]?.id ?? null;
   const [focusedDayId, setFocusedDayId] = useState<string | null>(firstDayId);
 
+  // Canvas controls (e.g. "Fix this day") send prompts to the copilot bar.
+  // The incrementing `n` lets the bar fire each request, even if the text
+  // repeats.
+  const [copilotRequest, setCopilotRequest] = useState<{
+    text: string;
+    n: number;
+  } | null>(null);
+  const askCopilot = (text: string) =>
+    setCopilotRequest((r) => ({ text, n: (r?.n ?? 0) + 1 }));
+
   const dnd = useCanvasDnd(
     useMemo(() => buildDayStops(trip.legs.flatMap((l) => l.days)), [trip]),
   );
@@ -62,12 +72,14 @@ export function TripWorkspace({
           onSetLeg={setActiveLegId}
           focusedDayId={focusedDayId}
           onFocusDay={setFocusedDayId}
+          onAskCopilot={askCopilot}
         />
         <CopilotBar
           tripId={trip.id}
           dnd={dnd}
           dayLabels={dayLabels}
           initialMessages={initialChat}
+          request={copilotRequest}
         />
       </div>
       <div className="relative w-[40%]">
