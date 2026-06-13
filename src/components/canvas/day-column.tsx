@@ -5,11 +5,13 @@ import {
   SortableContext,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { cn } from "@/lib/utils";
 import { dayPacing, type Pace } from "./pacing";
 import { SortableStop } from "./sortable-stop";
 import { StopDraft, StopEditor } from "./stop-editor";
+import { TravelChip } from "./travel-chip";
+import type { TravelLegMap } from "./use-travel-times";
 import { CanvasDay, CanvasLeg, CanvasStop } from "./types";
 
 function draftToPatch(d: StopDraft): Partial<CanvasStop> {
@@ -36,6 +38,7 @@ export function DayColumn({
   onUpdateStop,
   onDeleteStop,
   onFixDay,
+  travelLegs,
 }: {
   leg: CanvasLeg;
   day: CanvasDay;
@@ -49,6 +52,7 @@ export function DayColumn({
   onUpdateStop: (stopId: string, patch: Partial<CanvasStop>) => void;
   onDeleteStop: (stopId: string) => void;
   onFixDay: () => void;
+  travelLegs: TravelLegMap;
 }) {
   const { setNodeRef } = useDroppable({ id: day.id });
   const [adding, setAdding] = useState(false);
@@ -99,31 +103,36 @@ export function DayColumn({
         strategy={verticalListSortingStrategy}
       >
         <div ref={setNodeRef} className="flex min-h-16 flex-col gap-2">
-          {stops.map((stop) =>
-            editingId === stop.id ? (
-              <StopEditor
-                key={stop.id}
-                initial={{
-                  title: stop.title,
-                  type: stop.type,
-                  startTime: stop.startTime ?? "",
-                  durationMin: stop.durationMin?.toString() ?? "",
-                }}
-                onSave={(d) => {
-                  onUpdateStop(stop.id, draftToPatch(d));
-                  setEditingId(null);
-                }}
-                onCancel={() => setEditingId(null)}
-              />
-            ) : (
-              <SortableStop
-                key={stop.id}
-                stop={stop}
-                onEdit={() => setEditingId(stop.id)}
-                onDelete={() => onDeleteStop(stop.id)}
-              />
-            ),
-          )}
+          {stops.map((stop, i) => {
+            const next = stops[i + 1];
+            const leg = next ? travelLegs[`${stop.id}->${next.id}`] : null;
+            return (
+              <Fragment key={stop.id}>
+                {editingId === stop.id ? (
+                  <StopEditor
+                    initial={{
+                      title: stop.title,
+                      type: stop.type,
+                      startTime: stop.startTime ?? "",
+                      durationMin: stop.durationMin?.toString() ?? "",
+                    }}
+                    onSave={(d) => {
+                      onUpdateStop(stop.id, draftToPatch(d));
+                      setEditingId(null);
+                    }}
+                    onCancel={() => setEditingId(null)}
+                  />
+                ) : (
+                  <SortableStop
+                    stop={stop}
+                    onEdit={() => setEditingId(stop.id)}
+                    onDelete={() => onDeleteStop(stop.id)}
+                  />
+                )}
+                {leg && <TravelChip leg={leg} />}
+              </Fragment>
+            );
+          })}
           {stops.length === 0 && !adding && (
             <div className="rounded-xl border border-dashed border-surface-variant p-4 text-center text-xs text-on-surface-variant/60">
               Drop a stop here

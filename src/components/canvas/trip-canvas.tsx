@@ -8,6 +8,7 @@ import { dayPacing } from "./pacing";
 import { StopCard } from "./stop-card";
 import { CanvasLeg, CanvasDay, CanvasStop, CanvasTrip } from "./types";
 import { CanvasDndState } from "./use-canvas-dnd";
+import type { TravelLegMap } from "./use-travel-times";
 
 function formatDay(date: string) {
   return new Date(`${date}T12:00:00`).toLocaleDateString("en-US", {
@@ -27,6 +28,7 @@ export function TripCanvas({
   onAskCopilot,
   onVerify,
   verifying,
+  travelLegs,
 }: {
   trip: CanvasTrip;
   dnd: CanvasDndState;
@@ -37,6 +39,7 @@ export function TripCanvas({
   onAskCopilot: (prompt: string) => void;
   onVerify: () => void;
   verifying: boolean;
+  travelLegs: TravelLegMap;
 }) {
   const {
     dayStops,
@@ -158,6 +161,7 @@ export function TripCanvas({
               onFixDay={() =>
                 askFixDay(leg, day, dayNumber, dayStops[day.id] ?? [])
               }
+              travelLegs={travelLegs}
             />
           ))}
         </div>

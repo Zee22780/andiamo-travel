@@ -8,6 +8,7 @@ import { TodayView } from "./today-view";
 import { TripCanvas } from "./trip-canvas";
 import { CanvasTrip } from "./types";
 import { buildDayStops, useCanvasDnd } from "./use-canvas-dnd";
+import { useTravelTimes } from "./use-travel-times";
 
 function localTodayStr(): string {
   const d = new Date();
@@ -47,7 +48,7 @@ export function TripWorkspace({
   const askCopilot = (text: string) =>
     setCopilotRequest((r) => ({ text, n: (r?.n ?? 0) + 1 }));
 
-  // Trust layer: verify AI place stops against MapTiler, then resync so the
+  // Trust layer: verify AI place stops against Google Places, then resync so the
   // Verified/Flagged badges and accurate pins appear without a reload.
   const [verifying, setVerifying] = useState(false);
   const verifyPlaces = async () => {
@@ -87,6 +88,9 @@ export function TripWorkspace({
   }, [trip, focusedDayId]);
 
   const focusedStops = focusedDayId ? (dnd.dayStops[focusedDayId] ?? []) : [];
+
+  // Real travel times between consecutive located stops, for the chips.
+  const travelLegs = useTravelTimes(trip.id, dnd.dayStops);
 
   // Trip tree with the canvas's live stop state merged in, so the Today view
   // reflects edits made this session without a reload.
@@ -153,6 +157,7 @@ export function TripWorkspace({
               onAskCopilot={askCopilot}
               onVerify={verifyPlaces}
               verifying={verifying}
+              travelLegs={travelLegs}
             />
             <CopilotBar
               tripId={trip.id}
