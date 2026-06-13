@@ -1,11 +1,19 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { cn } from "@/lib/utils";
 import { CopilotBar } from "./copilot-bar";
 import { MapPane } from "./map-pane";
+import { TodayView } from "./today-view";
 import { TripCanvas } from "./trip-canvas";
 import { CanvasTrip } from "./types";
 import { buildDayStops, useCanvasDnd } from "./use-canvas-dnd";
+
+function localTodayStr(): string {
+  const d = new Date();
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
 
 export function TripWorkspace({
   trip,
@@ -19,6 +27,15 @@ export function TripWorkspace({
   const [activeLegId, setActiveLegId] = useState<string | null>(null);
   const firstDayId = trip.legs[0]?.days[0]?.id ?? null;
   const [focusedDayId, setFocusedDayId] = useState<string | null>(firstDayId);
+
+  // Plan ↔ Today (companion) toggle. Default to Today only while the trip is
+  // actually live, so planning trips open on the canvas.
+  const [view, setView] = useState<"plan" | "today">(() => {
+    const dates = trip.legs.flatMap((l) => l.days.map((d) => d.date)).sort();
+    if (!dates.length) return "plan";
+    const t = localTodayStr();
+    return t >= dates[0] && t <= dates[dates.length - 1] ? "today" : "plan";
+  });
 
   // Canvas controls (e.g. "Fix this day") send prompts to the copilot bar.
   // The incrementing `n` lets the bar fire each request, even if the text
@@ -71,6 +88,22 @@ export function TripWorkspace({
 
   const focusedStops = focusedDayId ? (dnd.dayStops[focusedDayId] ?? []) : [];
 
+  // Trip tree with the canvas's live stop state merged in, so the Today view
+  // reflects edits made this session without a reload.
+  const liveTrip = useMemo<CanvasTrip>(
+    () => ({
+      ...trip,
+      legs: trip.legs.map((leg) => ({
+        ...leg,
+        days: leg.days.map((day) => ({
+          ...day,
+          stops: dnd.dayStops[day.id] ?? day.stops,
+        })),
+      })),
+    }),
+    [trip, dnd.dayStops],
+  );
+
   // dayId -> "Destination · date" for suggestion cards
   const dayLabels = useMemo(() => {
     const out: Record<string, string> = {};
@@ -85,36 +118,61 @@ export function TripWorkspace({
   }, [trip]);
 
   return (
-    <div className="flex min-h-0 flex-1">
-      <div className="relative flex w-[60%] min-w-0 flex-col border-r border-surface-variant">
-        <TripCanvas
-          trip={trip}
-          dnd={dnd}
-          activeLegId={activeLegId}
-          onSetLeg={setActiveLegId}
-          focusedDayId={focusedDayId}
-          onFocusDay={setFocusedDayId}
-          onAskCopilot={askCopilot}
-          onVerify={verifyPlaces}
-          verifying={verifying}
-        />
-        <CopilotBar
-          tripId={trip.id}
-          dnd={dnd}
-          dayLabels={dayLabels}
-          initialMessages={initialChat}
-          request={copilotRequest}
-        />
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="flex items-center justify-center border-b border-surface-variant bg-surface-warm py-2">
+        <div className="inline-flex rounded-full border border-surface-variant bg-white p-0.5">
+          {(["plan", "today"] as const).map((v) => (
+            <button
+              key={v}
+              onClick={() => setView(v)}
+              className={cn(
+                "rounded-full px-5 py-1.5 text-sm font-bold capitalize transition-colors",
+                view === v
+                  ? "bg-primary text-white"
+                  : "text-on-surface-variant hover:text-primary",
+              )}
+            >
+              {v}
+            </button>
+          ))}
+        </div>
       </div>
-      <div className="relative w-[40%]">
-        {mapKey ? (
-          <MapPane mapKey={mapKey} stops={focusedStops} near={focusedNear} />
-        ) : (
-          <div className="flex h-full items-center justify-center bg-surface-warm p-6 text-center text-sm text-on-surface-variant/60">
-            Add a MapTiler key to enable the map.
+
+      {view === "today" ? (
+        <TodayView trip={liveTrip} />
+      ) : (
+        <div className="flex min-h-0 flex-1">
+          <div className="relative flex w-[60%] min-w-0 flex-col border-r border-surface-variant">
+            <TripCanvas
+              trip={trip}
+              dnd={dnd}
+              activeLegId={activeLegId}
+              onSetLeg={setActiveLegId}
+              focusedDayId={focusedDayId}
+              onFocusDay={setFocusedDayId}
+              onAskCopilot={askCopilot}
+              onVerify={verifyPlaces}
+              verifying={verifying}
+            />
+            <CopilotBar
+              tripId={trip.id}
+              dnd={dnd}
+              dayLabels={dayLabels}
+              initialMessages={initialChat}
+              request={copilotRequest}
+            />
           </div>
-        )}
-      </div>
+          <div className="relative w-[40%]">
+            {mapKey ? (
+              <MapPane mapKey={mapKey} stops={focusedStops} near={focusedNear} />
+            ) : (
+              <div className="flex h-full items-center justify-center bg-surface-warm p-6 text-center text-sm text-on-surface-variant/60">
+                Add a MapTiler key to enable the map.
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
