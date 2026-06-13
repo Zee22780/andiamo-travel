@@ -37,6 +37,18 @@ export function Hero() {
           "-=0.3",
         );
 
+      // Ambient drift on the warm accent glow — a slow, looping float so the
+      // hero feels alive even when idle. sine ease + yoyo keeps it organic.
+      gsap.to("[data-hero='glow']", {
+        xPercent: -10,
+        yPercent: 12,
+        scale: 1.12,
+        duration: 7,
+        ease: "sine.inOut",
+        repeat: -1,
+        yoyo: true,
+      });
+
       // Parallax: drift the hero photo slower than the page on scroll so it
       // reads as a recessed layer. Desktop only — the effect is weak on short
       // viewports and scroll-linked motion can stutter on mobile browsers. The
@@ -80,6 +92,7 @@ export function Hero() {
       </div>
       {/* warm accent glow */}
       <div
+        data-hero="glow"
         aria-hidden
         className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-accent/30 blur-3xl"
       />
