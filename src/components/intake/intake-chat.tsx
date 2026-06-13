@@ -10,7 +10,7 @@ import { TripSummaryPanel } from "./trip-summary-panel";
 import { ChatMessage, EMPTY_SUMMARY, IntakeSummary } from "./types";
 
 const OPENER =
-  "Hi! I'm your Waypoint guide. Tell me about the trip you have in mind — where to, roughly when, and who's coming?";
+  "Hi! I'm your Andiamo guide. Tell me about the trip you have in mind — where to, roughly when, and who's coming?";
 
 export function IntakeChat() {
   const [messages, setMessages] = useState<ChatMessage[]>([
@@ -238,7 +238,7 @@ export function IntakeChat() {
           <Input
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Reply to Waypoint…"
+            placeholder="Reply to Andiamo…"
             disabled={streaming}
             className="rounded-full"
           />

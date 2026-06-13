@@ -1,6 +1,6 @@
 import { loadTrips, TripPhase } from "@/db/trips";
 
-export const metadata = { title: "Your trips — Waypoint" };
+export const metadata = { title: "Your trips — Andiamo" };
 export const dynamic = "force-dynamic";
 
 const PHASE_PILL: Record<TripPhase, { label: string; className: string }> = {
@@ -31,7 +31,7 @@ export default async function TripsDashboard() {
     <div className="min-h-screen">
       <header className="flex items-center justify-between border-b border-surface-variant bg-surface-warm px-6 py-4">
         <a href="/" className="font-headline text-2xl font-black text-primary">
-          Waypoint
+          Andiamo
         </a>
         <a
           href="/trips/new"

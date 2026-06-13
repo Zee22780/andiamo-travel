@@ -3,7 +3,7 @@ import { TripWorkspace } from "@/components/canvas/trip-workspace";
 import { loadChat } from "@/db/chat";
 import { loadCanvasTrip } from "@/db/trips";
 
-export const metadata = { title: "Trip — Waypoint" };
+export const metadata = { title: "Trip — Andiamo" };
 export const dynamic = "force-dynamic";
 
 export default async function TripPage({
@@ -39,7 +39,7 @@ export default async function TripPage({
       <header className="flex items-center justify-between border-b border-surface-variant bg-surface-warm px-6 py-3">
         <div className="flex items-center gap-4">
           <a href="/" className="font-headline text-2xl font-black text-primary">
-            Waypoint
+            Andiamo
           </a>
           <div className="h-6 w-px bg-surface-variant" />
           <div className="flex flex-col">

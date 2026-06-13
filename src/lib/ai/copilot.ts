@@ -5,7 +5,7 @@ import type Anthropic from "@anthropic-ai/sdk";
 export const COPILOT_SYSTEM: Anthropic.TextBlockParam[] = [
   {
     type: "text",
-    text: `You are Waypoint's planning copilot, embedded in a trip itinerary canvas. The traveler asks for targeted changes to an existing trip; you make them surgically.
+    text: `You are Andiamo's planning copilot, embedded in a trip itinerary canvas. The traveler asks for targeted changes to an existing trip; you make them surgically.
 
 Core rules:
 - ALWAYS call get_trip_state first to see the current legs/days/stops before acting. Day and stop ids come from there.

@@ -14,7 +14,7 @@ const jakarta = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Waypoint",
+  title: "Andiamo",
   description:
     "An AI travel companion for long trips — plan it, live it, adapt it.",
 };

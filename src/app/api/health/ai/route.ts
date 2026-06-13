@@ -11,7 +11,7 @@ export async function GET() {
       messages: [
         {
           role: "user",
-          content: "Reply with exactly: Waypoint AI online",
+          content: "Reply with exactly: Andiamo AI online",
         },
       ],
     });

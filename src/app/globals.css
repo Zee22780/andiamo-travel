@@ -4,7 +4,7 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* Waypoint design tokens — source of truth: notes/design-system.md */
+/* Andiamo design tokens — source of truth: notes/design-system.md */
 :root {
   --color-primary: #0e7c6b;
   --color-accent: #d96f32;
@@ -19,7 +19,7 @@
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
-  --primary: #0e7c6b; /* Waypoint teal — keeps shadcn components on-brand */
+  --primary: #0e7c6b; /* Andiamo teal — keeps shadcn components on-brand */
   --primary-foreground: oklch(0.985 0 0);
   --secondary: oklch(0.97 0 0);
   --secondary-foreground: oklch(0.205 0 0);
@@ -36,7 +36,7 @@
   --chart-3: oklch(0.439 0 0);
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
-  --radius: 0.75rem; /* Waypoint 12px radius family */
+  --radius: 0.75rem; /* Andiamo 12px radius family */
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
   --sidebar-primary: oklch(0.205 0 0);
