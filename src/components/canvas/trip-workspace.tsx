@@ -74,6 +74,49 @@ export function TripWorkspace({
     useMemo(() => buildDayStops(trip.legs.flatMap((l) => l.days)), [trip]),
   );
 
+  // Companion "Replan rest of day": run the copilot self-contained (no bar
+  // needed) and resync so the Today timeline rebuilds live. The prompt is
+  // assembled by the Today view, which knows the current time + stop states.
+  const [replanning, setReplanning] = useState(false);
+  const replanRestOfDay = async (message: string) => {
+    if (replanning) return;
+    setReplanning(true);
+    try {
+      const res = await fetch(`/api/trips/${trip.id}/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message }),
+      });
+      if (!res.ok || !res.body) return;
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let didApply = false;
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        let sep;
+        while ((sep = buffer.indexOf("\n\n")) !== -1) {
+          const frame = buffer.slice(0, sep);
+          buffer = buffer.slice(sep + 2);
+          if (frame.match(/^event: (.*)$/m)?.[1] === "applied") didApply = true;
+        }
+      }
+      if (didApply) {
+        const state = await fetch(`/api/trips/${trip.id}/state`, {
+          cache: "no-store",
+        });
+        if (state.ok) {
+          const { trip: fresh } = (await state.json()) as { trip: CanvasTrip };
+          dnd.resync(buildDayStops(fresh.legs.flatMap((l) => l.days)));
+        }
+      }
+    } finally {
+      setReplanning(false);
+    }
+  };
+
   // The destination context for the focused day, for geocode biasing.
   // Append the trip's region/country so ambiguous city names resolve
   // correctly (e.g. "Florence" -> "Florence, Italy", not Florence, USA).
@@ -143,7 +186,11 @@ export function TripWorkspace({
       </div>
 
       {view === "today" ? (
-        <TodayView trip={liveTrip} />
+        <TodayView
+          trip={liveTrip}
+          onReplan={replanRestOfDay}
+          replanning={replanning}
+        />
       ) : (
         <div className="flex min-h-0 flex-1">
           <div className="relative flex w-[60%] min-w-0 flex-col border-r border-surface-variant">

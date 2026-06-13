@@ -159,7 +159,15 @@ function flattenDays(trip: CanvasTrip): FlatDay[] {
   return out;
 }
 
-export function TodayView({ trip }: { trip: CanvasTrip }) {
+export function TodayView({
+  trip,
+  onReplan,
+  replanning,
+}: {
+  trip: CanvasTrip;
+  onReplan?: (message: string) => void;
+  replanning?: boolean;
+}) {
   // Re-tick each minute so the now-indicator and past/current state stay live.
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
@@ -267,6 +275,29 @@ export function TodayView({ trip }: { trip: CanvasTrip }) {
         </p>
       )}
       <DayWeatherStrip stops={activeDay.stops} date={activeDay.date} />
+
+      {isToday && onReplan && timed.some((s) => statusOf(s) !== "past") && (
+        <button
+          onClick={() => {
+            const done = timed.filter((s) => statusOf(s) === "past");
+            const remaining = timed.filter((s) => statusOf(s) !== "past");
+            const mustDos = remaining.filter((s) => s.mustDo).map((s) => s.title);
+            const msg =
+              `It's now ${nowLabel} on ${longDate(activeDay.date)} — Day ${activeDay.dayNumber} in ${activeDay.legDestination}. ` +
+              `Replan the rest of today from now. ` +
+              `Already done, leave unchanged: ${done.map((s) => s.title).join("; ") || "nothing yet"}. ` +
+              `Still to come: ${remaining.map((s) => s.title).join("; ")}. ` +
+              `Re-time the remaining stops so they realistically fit from ${nowLabel} onward, shorten or drop whatever no longer fits, and keep a sensible order. ` +
+              `Never drop a must-do${mustDos.length ? ` (${mustDos.join("; ")})` : ""}. ` +
+              `Apply the changes directly with update_stops — don't just suggest them.`;
+            onReplan(msg);
+          }}
+          disabled={replanning}
+          className="mt-4 w-full rounded-full bg-accent px-4 py-2 text-sm font-bold text-white shadow-sm transition-opacity hover:opacity-90 active:scale-[0.99] disabled:opacity-60"
+        >
+          {replanning ? "Replanning…" : "↻ Replan rest of day"}
+        </button>
+      )}
 
       <ol className="mt-5 space-y-2.5">
         {timed.map((s, i) => (
