@@ -1,8 +1,100 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import type { DayWeather } from "@/lib/weather";
 import { cn } from "@/lib/utils";
 import { CanvasStop, CanvasTrip } from "./types";
+
+// WMO weather code → icon + short label (forecast only).
+function wmo(code: number): { icon: string; label: string } {
+  if (code === 0) return { icon: "☀️", label: "Clear" };
+  if (code <= 2) return { icon: "🌤️", label: "Partly cloudy" };
+  if (code === 3) return { icon: "☁️", label: "Overcast" };
+  if (code <= 48) return { icon: "🌫️", label: "Fog" };
+  if (code <= 57) return { icon: "🌦️", label: "Drizzle" };
+  if (code <= 67) return { icon: "🌧️", label: "Rain" };
+  if (code <= 77) return { icon: "❄️", label: "Snow" };
+  if (code <= 82) return { icon: "🌦️", label: "Showers" };
+  if (code <= 86) return { icon: "🌨️", label: "Snow showers" };
+  return { icon: "⛈️", label: "Thunderstorm" };
+}
+
+// Average coords of the day's located stops — the point we ask weather for.
+function dayCoords(stops: CanvasStop[]): { lat: number; lng: number } | null {
+  const pts = stops.filter((s) => s.lat != null && s.lng != null);
+  if (pts.length === 0) return null;
+  return {
+    lat: pts.reduce((a, s) => a + (s.lat as number), 0) / pts.length,
+    lng: pts.reduce((a, s) => a + (s.lng as number), 0) / pts.length,
+  };
+}
+
+function useDayWeather(
+  coords: { lat: number; lng: number } | null,
+  date: string,
+): DayWeather | null {
+  const [weather, setWeather] = useState<DayWeather | null>(null);
+  useEffect(() => {
+    if (!coords) {
+      setWeather(null);
+      return;
+    }
+    let cancelled = false;
+    fetch(`/api/weather?lat=${coords.lat}&lng=${coords.lng}&date=${date}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: { weather?: DayWeather | null } | null) => {
+        if (!cancelled) setWeather(d?.weather ?? null);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [coords?.lat, coords?.lng, date]);
+  return weather;
+}
+
+function DayWeatherStrip({
+  stops,
+  date,
+}: {
+  stops: CanvasStop[];
+  date: string;
+}) {
+  const weather = useDayWeather(dayCoords(stops), date);
+  if (!weather) return null;
+  return <WeatherStrip weather={weather} />;
+}
+
+function WeatherStrip({ weather }: { weather: DayWeather }) {
+  const rainy = weather.precipChance >= 50;
+  const cond = weather.kind === "forecast" ? wmo(weather.code) : null;
+  return (
+    <div className="mt-3 space-y-2">
+      <div className="flex items-center gap-2 text-sm text-on-surface-variant">
+        <span aria-hidden className="text-base">
+          {cond ? cond.icon : "🗓️"}
+        </span>
+        <span className="font-semibold text-on-surface">
+          {weather.tempMaxC}° / {weather.tempMinC}°
+        </span>
+        {cond && <span>{cond.label}</span>}
+        <span className="text-on-surface-variant/70">
+          {weather.kind === "normal"
+            ? `· typical · rain ~${weather.precipChance}% of years`
+            : `· ${weather.precipChance}% rain`}
+        </span>
+      </div>
+      {rainy && (
+        <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-xs font-semibold text-amber-700">
+          <span aria-hidden>🌧️</span>
+          {weather.kind === "normal"
+            ? "Rain is common on this date — pack a layer."
+            : "Rain likely — keep an indoor option handy."}
+        </div>
+      )}
+    </div>
+  );
+}
 
 const TYPE_ICONS: Record<CanvasStop["type"], string> = {
   activity: "🏛️",
@@ -174,6 +266,7 @@ export function TodayView({ trip }: { trip: CanvasTrip }) {
           {activeDay.notes}
         </p>
       )}
+      <DayWeatherStrip stops={activeDay.stops} date={activeDay.date} />
 
       <ol className="mt-5 space-y-2.5">
         {timed.map((s, i) => (
@@ -272,7 +365,8 @@ function DayPreview({ day, heading }: { day: FlatDay; heading: string }) {
       <p className="text-xs font-bold uppercase tracking-widest text-on-surface-variant/50">
         {heading}
       </p>
-      <ol className="mt-2 space-y-1.5">
+      <DayWeatherStrip stops={day.stops} date={day.date} />
+      <ol className="mt-3 space-y-1.5">
         {day.stops.slice(0, 5).map((s) => (
           <li key={s.id} className="flex items-center gap-2 text-sm">
             <span className="w-12 shrink-0 font-mono text-xs text-on-surface-variant">
