@@ -1,4 +1,4 @@
-import { eq, sql } from "drizzle-orm";
+import { and, asc, eq, gte, sql } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/db/client";
@@ -16,8 +16,9 @@ const CreateSchema = z.object({
   durationMin: z.number().int().positive().nullable().optional(),
 });
 
-// POST { dayId, title, ... } — manual stop add. Appends to the day; user-
-// authored stops are marked verified (no AI claim to check).
+// POST { dayId, title, ... } — manual / accepted stop add. A timed stop slots
+// into the day in start-time order (matching the AI's time-ordered stops); an
+// untimed stop appends. User-authored stops are marked verified (no AI claim).
 export async function POST(req: NextRequest) {
   const parsed = CreateSchema.safeParse(await req.json());
   if (!parsed.success) {
@@ -25,26 +26,45 @@ export async function POST(req: NextRequest) {
   }
   const { dayId, type, title, startTime, durationMin } = parsed.data;
 
-  const [{ next }] = await db
-    .select({
-      next: sql<number>`coalesce(max(${stops.sortOrder}) + 1, 0)`,
-    })
+  const existing = await db
+    .select({ sortOrder: stops.sortOrder, startTime: stops.startTime })
     .from(stops)
-    .where(eq(stops.dayId, dayId));
+    .where(eq(stops.dayId, dayId))
+    .orderBy(asc(stops.sortOrder));
 
-  const [created] = await db
-    .insert(stops)
-    .values({
-      dayId,
-      type,
-      title,
-      startTime: startTime ?? null,
-      durationMin: durationMin ?? null,
-      sortOrder: next,
-      source: "user",
-      verification: "verified",
-    })
-    .returning();
+  // Insert before the first stop scheduled later in the day; otherwise append.
+  const maxOrder = existing.length
+    ? Math.max(...existing.map((s) => s.sortOrder)) + 1
+    : 0;
+  const laterTimed = startTime
+    ? existing.find(
+        (s) => s.startTime != null && s.startTime.slice(0, 5) > startTime,
+      )
+    : undefined;
+  const insertAt = laterTimed ? laterTimed.sortOrder : maxOrder;
+
+  const created = await db.transaction(async (tx) => {
+    if (laterTimed) {
+      await tx
+        .update(stops)
+        .set({ sortOrder: sql`${stops.sortOrder} + 1` })
+        .where(and(eq(stops.dayId, dayId), gte(stops.sortOrder, insertAt)));
+    }
+    const [row] = await tx
+      .insert(stops)
+      .values({
+        dayId,
+        type,
+        title,
+        startTime: startTime ?? null,
+        durationMin: durationMin ?? null,
+        sortOrder: insertAt,
+        source: "user",
+        verification: "verified",
+      })
+      .returning();
+    return row;
+  });
 
   return NextResponse.json({ stop: created });
 }
