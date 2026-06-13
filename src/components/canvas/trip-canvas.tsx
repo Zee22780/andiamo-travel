@@ -1,9 +1,12 @@
 "use client";
 
+import { DndContext, DragOverlay, closestCorners } from "@dnd-kit/core";
 import { useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
+import { DayColumn } from "./day-column";
 import { StopCard } from "./stop-card";
 import { CanvasTrip } from "./types";
+import { buildDayStops, useCanvasDnd } from "./use-canvas-dnd";
 
 function formatDay(date: string) {
   return new Date(`${date}T12:00:00`).toLocaleDateString("en-US", {
@@ -15,6 +18,13 @@ function formatDay(date: string) {
 
 export function TripCanvas({ trip }: { trip: CanvasTrip }) {
   const [activeLegId, setActiveLegId] = useState<string | null>(null);
+  const { dayStops, activeStop, sensors, onDragStart, onDragOver, onDragEnd } =
+    useCanvasDnd(
+      useMemo(
+        () => buildDayStops(trip.legs.flatMap((l) => l.days)),
+        [trip],
+      ),
+    );
 
   const allDays = useMemo(
     () =>
@@ -53,13 +63,11 @@ export function TripCanvas({ trip }: { trip: CanvasTrip }) {
         >
           All
         </button>
-        {trip.legs.map((leg, i) => (
+        {trip.legs.map((leg) => (
           <span key={leg.id} className="flex items-center gap-2">
-            {i >= 0 && (
-              <span className="text-sm text-surface-variant" aria-hidden>
-                ›
-              </span>
-            )}
+            <span className="text-sm text-surface-variant" aria-hidden>
+              ›
+            </span>
             <button
               onClick={() =>
                 setActiveLegId(activeLegId === leg.id ? null : leg.id)
@@ -78,35 +86,29 @@ export function TripCanvas({ trip }: { trip: CanvasTrip }) {
       </div>
 
       {/* Day columns */}
-      <div className="flex flex-1 items-start gap-5 overflow-x-auto p-6">
-        {visibleDays.map(({ leg, day, dayNumber }) => (
-          <div key={day.id} className="flex w-[320px] shrink-0 flex-col gap-3">
-            <div className="space-y-0.5">
-              <div className="flex items-baseline justify-between">
-                <span className="text-sm font-bold">Day {dayNumber}</span>
-                <span className="text-xs font-medium text-on-surface-variant">
-                  {leg.destination} · {formatDay(day.date)}
-                </span>
-              </div>
-              {day.notes && (
-                <p className="truncate text-xs italic text-on-surface-variant/70">
-                  {day.notes}
-                </p>
-              )}
-            </div>
-            <div className="flex flex-col gap-2">
-              {day.stops.map((stop) => (
-                <StopCard key={stop.id} stop={stop} />
-              ))}
-              {day.stops.length === 0 && (
-                <div className="rounded-xl border border-dashed border-surface-variant p-4 text-center text-xs text-on-surface-variant/60">
-                  Nothing planned yet
-                </div>
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCorners}
+        onDragStart={onDragStart}
+        onDragOver={onDragOver}
+        onDragEnd={onDragEnd}
+      >
+        <div className="flex flex-1 items-start gap-5 overflow-x-auto p-6">
+          {visibleDays.map(({ leg, day, dayNumber }) => (
+            <DayColumn
+              key={day.id}
+              leg={leg}
+              day={day}
+              dayNumber={dayNumber}
+              stops={dayStops[day.id] ?? []}
+              dateLabel={formatDay(day.date)}
+            />
+          ))}
+        </div>
+        <DragOverlay>
+          {activeStop ? <StopCard stop={activeStop} dragging /> : null}
+        </DragOverlay>
+      </DndContext>
     </div>
   );
 }
