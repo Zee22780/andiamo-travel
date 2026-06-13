@@ -91,14 +91,14 @@ export function TripCanvas({
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       {/* Leg bar */}
-      <div className="flex items-center gap-2 border-b border-surface-variant bg-white px-6 py-3">
-        <span className="mr-2 text-xs font-bold uppercase tracking-widest text-on-surface-variant/50">
+      <div className="flex shrink-0 items-center gap-2 overflow-x-auto border-b border-surface-variant bg-white px-4 py-3 lg:px-6">
+        <span className="mr-2 shrink-0 text-xs font-bold uppercase tracking-widest text-on-surface-variant/50">
           Route
         </span>
         <button
           onClick={() => onSetLeg(null)}
           className={cn(
-            "rounded-lg px-3 py-1.5 text-sm font-medium transition-all",
+            "shrink-0 rounded-lg px-3 py-1.5 text-sm font-medium transition-all",
             activeLegId === null
               ? "bg-primary/10 font-bold text-primary"
               : "text-on-surface-variant hover:bg-surface-warm",
@@ -107,7 +107,7 @@ export function TripCanvas({
           All
         </button>
         {trip.legs.map((leg) => (
-          <span key={leg.id} className="flex items-center gap-2">
+          <span key={leg.id} className="flex shrink-0 items-center gap-2">
             <span className="text-sm text-surface-variant" aria-hidden>
               ›
             </span>
@@ -128,7 +128,7 @@ export function TripCanvas({
           onClick={onVerify}
           disabled={verifying}
           title="Check that AI-suggested places resolve to a real location"
-          className="ml-auto rounded-lg border border-primary/30 px-3 py-1.5 text-sm font-bold text-primary transition-all hover:bg-primary/5 disabled:opacity-60"
+          className="ml-auto shrink-0 rounded-lg border border-primary/30 px-3 py-1.5 text-sm font-bold text-primary transition-all hover:bg-primary/5 disabled:opacity-60"
         >
           {verifying ? "Verifying…" : "✓ Verify places"}
         </button>
@@ -143,7 +143,7 @@ export function TripCanvas({
         onDragOver={onDragOver}
         onDragEnd={onDragEnd}
       >
-        <div className="flex flex-1 items-start gap-5 overflow-x-auto p-6">
+        <div className="flex flex-1 items-start gap-4 overflow-x-auto p-4 lg:gap-5 lg:p-6">
           {visibleDays.map(({ leg, day, dayNumber }) => (
             <DayColumn
               key={day.id}

@@ -192,8 +192,8 @@ export function TripWorkspace({
           replanning={replanning}
         />
       ) : (
-        <div className="flex min-h-0 flex-1">
-          <div className="relative flex w-[60%] min-w-0 flex-col border-r border-surface-variant">
+        <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
+          <div className="relative flex min-h-0 min-w-0 flex-1 flex-col border-b border-surface-variant lg:w-[60%] lg:flex-none lg:border-b-0 lg:border-r">
             <TripCanvas
               trip={trip}
               dnd={dnd}
@@ -214,7 +214,8 @@ export function TripWorkspace({
               request={copilotRequest}
             />
           </div>
-          <div className="relative w-[40%]">
+          {/* Map: a strip below the canvas on mobile, a side panel on desktop. */}
+          <div className="relative h-64 shrink-0 lg:h-auto lg:w-[40%]">
             {mapKey ? (
               <MapPane mapKey={mapKey} stops={focusedStops} near={focusedNear} />
             ) : (
