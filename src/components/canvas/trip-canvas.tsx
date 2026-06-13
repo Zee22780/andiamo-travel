@@ -4,9 +4,11 @@ import { DndContext, DragOverlay, closestCorners } from "@dnd-kit/core";
 import { useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { DayColumn } from "./day-column";
+import { dayPacing } from "./pacing";
 import { StopCard } from "./stop-card";
-import { CanvasTrip } from "./types";
+import { CanvasLeg, CanvasDay, CanvasStop, CanvasTrip } from "./types";
 import { CanvasDndState } from "./use-canvas-dnd";
+import type { TravelLegMap } from "./use-travel-times";
 
 function formatDay(date: string) {
   return new Date(`${date}T12:00:00`).toLocaleDateString("en-US", {
@@ -23,6 +25,10 @@ export function TripCanvas({
   onSetLeg,
   focusedDayId,
   onFocusDay,
+  onAskCopilot,
+  onVerify,
+  verifying,
+  travelLegs,
 }: {
   trip: CanvasTrip;
   dnd: CanvasDndState;
@@ -30,6 +36,10 @@ export function TripCanvas({
   onSetLeg: (id: string | null) => void;
   focusedDayId: string | null;
   onFocusDay: (id: string) => void;
+  onAskCopilot: (prompt: string) => void;
+  onVerify: () => void;
+  verifying: boolean;
+  travelLegs: TravelLegMap;
 }) {
   const {
     dayStops,
@@ -61,6 +71,22 @@ export function TripCanvas({
   const visibleDays = activeLegId
     ? allDays.filter(({ leg }) => leg.id === activeLegId)
     : allDays;
+
+  // Build a concrete, day-scoped trim request the copilot can act on
+  // surgically (it resolves ids via get_trip_state).
+  const askFixDay = (
+    leg: CanvasLeg,
+    day: CanvasDay,
+    dayNumber: number,
+    stops: CanvasStop[],
+  ) => {
+    const p = dayPacing(stops, trip.pace);
+    const hrs =
+      p.activeMin > 0 ? `about ${Math.round(p.activeMin / 60)} hours across ` : "";
+    onAskCopilot(
+      `Day ${dayNumber} (${leg.destination}, ${formatDay(day.date)}) is overpacked for a ${p.pace} pace — ${hrs}${p.stopCount} stops. Trim it to a comfortable ${p.pace} day by removing or shortening the least essential stops. Never remove anything marked must-do.`,
+    );
+  };
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -98,10 +124,19 @@ export function TripCanvas({
             </button>
           </span>
         ))}
+        <button
+          onClick={onVerify}
+          disabled={verifying}
+          title="Check that AI-suggested places resolve to a real location"
+          className="ml-auto rounded-lg border border-primary/30 px-3 py-1.5 text-sm font-bold text-primary transition-all hover:bg-primary/5 disabled:opacity-60"
+        >
+          {verifying ? "Verifying…" : "✓ Verify places"}
+        </button>
       </div>
 
       {/* Day columns */}
       <DndContext
+        id="trip-canvas-dnd"
         sensors={sensors}
         collisionDetection={closestCorners}
         onDragStart={onDragStart}
@@ -117,11 +152,16 @@ export function TripCanvas({
               dayNumber={dayNumber}
               stops={dayStops[day.id] ?? []}
               dateLabel={formatDay(day.date)}
+              pace={trip.pace}
               focused={focusedDayId === day.id}
               onFocus={() => onFocusDay(day.id)}
               onAddStop={addStop}
               onUpdateStop={updateStop}
               onDeleteStop={deleteStop}
+              onFixDay={() =>
+                askFixDay(leg, day, dayNumber, dayStops[day.id] ?? [])
+              }
+              travelLegs={travelLegs}
             />
           ))}
         </div>

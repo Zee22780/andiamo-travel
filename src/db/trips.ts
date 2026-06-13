@@ -217,11 +217,15 @@ export async function loadCanvasTrip(
 ): Promise<CanvasTrip | null> {
   const trip = await loadTrip(tripId);
   if (!trip) return null;
-  const prefs = (trip.preferences ?? {}) as { destination?: string | null };
+  const prefs = (trip.preferences ?? {}) as {
+    destination?: string | null;
+    pace?: "relaxed" | "balanced" | "packed" | null;
+  };
   return {
     id: trip.id,
     name: trip.name,
     region: prefs.destination ?? null,
+    pace: prefs.pace ?? null,
     legs: trip.legs.map((leg) => ({
       id: leg.id,
       destination: leg.destination,
@@ -241,10 +245,20 @@ export async function loadCanvasTrip(
           durationMin: stop.durationMin,
           sortOrder: stop.sortOrder,
           verification: stop.verification,
+          lat: stop.lat,
+          lng: stop.lng,
           costEstimate: stop.costEstimate,
           mustDo: stop.mustDo,
         })),
       })),
     })),
   };
+}
+
+// The trip's region/country (from intake) for disambiguating place lookups —
+// e.g. "Florence" → "Florence, Italy". Light query, no leg/day/stop tree.
+export async function loadTripRegion(tripId: string): Promise<string | null> {
+  const trip = await db.query.trips.findFirst({ where: eq(trips.id, tripId) });
+  const prefs = (trip?.preferences ?? {}) as { destination?: string | null };
+  return prefs.destination ?? null;
 }

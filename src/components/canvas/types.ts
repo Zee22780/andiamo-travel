@@ -10,6 +10,8 @@ export type CanvasStop = {
   durationMin: number | null;
   sortOrder: number;
   verification: "unverified" | "verified" | "flagged";
+  lat: number | null; // stored by the verification pass; null until verified
+  lng: number | null;
   costEstimate: number | null;
   mustDo: boolean;
 };
@@ -34,5 +36,6 @@ export type CanvasTrip = {
   id: string;
   name: string;
   region: string | null; // country/region for geocoding disambiguation
+  pace: "relaxed" | "balanced" | "packed" | null; // drives overpacked-day detection
   legs: CanvasLeg[];
 };

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -29,11 +29,13 @@ export function CopilotBar({
   dnd,
   dayLabels,
   initialMessages,
+  request,
 }: {
   tripId: string;
   dnd: CanvasDndState;
   dayLabels: Record<string, string>;
   initialMessages: { role: "user" | "assistant"; content: string }[];
+  request?: { text: string; n: number } | null;
 }) {
   const [messages, setMessages] = useState<Msg[]>(initialMessages);
   // Suggestions live in their own state so streaming text can never clobber them.
@@ -41,6 +43,18 @@ export function CopilotBar({
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [open, setOpen] = useState(false);
+
+  // Fire canvas-originated prompts ("Fix this day") through the same send path.
+  // Track the last-handled request number so each click sends exactly once.
+  const lastRequestN = useRef(request?.n ?? 0);
+  useEffect(() => {
+    if (request && request.n !== lastRequestN.current) {
+      lastRequestN.current = request.n;
+      send(request.text);
+    }
+    // send is intentionally omitted; we react only to a new request number.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [request]);
 
   async function resyncBoard() {
     try {

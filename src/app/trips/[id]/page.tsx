@@ -22,8 +22,16 @@ export default async function TripPage({
     content: m.content,
   }));
 
+  const fmtDate = (d: string) =>
+    new Date(`${d}T12:00:00`).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
   const dateRange = trip.legs.length
-    ? `${trip.legs[0].startDate} → ${trip.legs[trip.legs.length - 1].endDate}`
+    ? `${fmtDate(trip.legs[0].startDate)} → ${fmtDate(
+        trip.legs[trip.legs.length - 1].endDate,
+      )}`
     : "";
 
   return (

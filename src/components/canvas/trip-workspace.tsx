@@ -1,11 +1,20 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { cn } from "@/lib/utils";
 import { CopilotBar } from "./copilot-bar";
 import { MapPane } from "./map-pane";
+import { TodayView } from "./today-view";
 import { TripCanvas } from "./trip-canvas";
 import { CanvasTrip } from "./types";
 import { buildDayStops, useCanvasDnd } from "./use-canvas-dnd";
+import { useTravelTimes } from "./use-travel-times";
+
+function localTodayStr(): string {
+  const d = new Date();
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
 
 export function TripWorkspace({
   trip,
@@ -20,9 +29,93 @@ export function TripWorkspace({
   const firstDayId = trip.legs[0]?.days[0]?.id ?? null;
   const [focusedDayId, setFocusedDayId] = useState<string | null>(firstDayId);
 
+  // Plan ↔ Today (companion) toggle. Default to Today only while the trip is
+  // actually live, so planning trips open on the canvas.
+  const [view, setView] = useState<"plan" | "today">(() => {
+    const dates = trip.legs.flatMap((l) => l.days.map((d) => d.date)).sort();
+    if (!dates.length) return "plan";
+    const t = localTodayStr();
+    return t >= dates[0] && t <= dates[dates.length - 1] ? "today" : "plan";
+  });
+
+  // Canvas controls (e.g. "Fix this day") send prompts to the copilot bar.
+  // The incrementing `n` lets the bar fire each request, even if the text
+  // repeats.
+  const [copilotRequest, setCopilotRequest] = useState<{
+    text: string;
+    n: number;
+  } | null>(null);
+  const askCopilot = (text: string) =>
+    setCopilotRequest((r) => ({ text, n: (r?.n ?? 0) + 1 }));
+
+  // Trust layer: verify AI place stops against Google Places, then resync so the
+  // Verified/Flagged badges and accurate pins appear without a reload.
+  const [verifying, setVerifying] = useState(false);
+  const verifyPlaces = async () => {
+    if (verifying) return;
+    setVerifying(true);
+    try {
+      const res = await fetch(`/api/trips/${trip.id}/verify`, {
+        method: "POST",
+      });
+      if (!res.ok) return;
+      const state = await fetch(`/api/trips/${trip.id}/state`, {
+        cache: "no-store",
+      });
+      if (!state.ok) return;
+      const { trip: fresh } = (await state.json()) as { trip: CanvasTrip };
+      dnd.resync(buildDayStops(fresh.legs.flatMap((l) => l.days)));
+    } finally {
+      setVerifying(false);
+    }
+  };
+
   const dnd = useCanvasDnd(
     useMemo(() => buildDayStops(trip.legs.flatMap((l) => l.days)), [trip]),
   );
+
+  // Companion "Replan rest of day": run the copilot self-contained (no bar
+  // needed) and resync so the Today timeline rebuilds live. The prompt is
+  // assembled by the Today view, which knows the current time + stop states.
+  const [replanning, setReplanning] = useState(false);
+  const replanRestOfDay = async (message: string) => {
+    if (replanning) return;
+    setReplanning(true);
+    try {
+      const res = await fetch(`/api/trips/${trip.id}/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message }),
+      });
+      if (!res.ok || !res.body) return;
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let didApply = false;
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        let sep;
+        while ((sep = buffer.indexOf("\n\n")) !== -1) {
+          const frame = buffer.slice(0, sep);
+          buffer = buffer.slice(sep + 2);
+          if (frame.match(/^event: (.*)$/m)?.[1] === "applied") didApply = true;
+        }
+      }
+      if (didApply) {
+        const state = await fetch(`/api/trips/${trip.id}/state`, {
+          cache: "no-store",
+        });
+        if (state.ok) {
+          const { trip: fresh } = (await state.json()) as { trip: CanvasTrip };
+          dnd.resync(buildDayStops(fresh.legs.flatMap((l) => l.days)));
+        }
+      }
+    } finally {
+      setReplanning(false);
+    }
+  };
 
   // The destination context for the focused day, for geocode biasing.
   // Append the trip's region/country so ambiguous city names resolve
@@ -39,6 +132,25 @@ export function TripWorkspace({
 
   const focusedStops = focusedDayId ? (dnd.dayStops[focusedDayId] ?? []) : [];
 
+  // Real travel times between consecutive located stops, for the chips.
+  const travelLegs = useTravelTimes(trip.id, dnd.dayStops);
+
+  // Trip tree with the canvas's live stop state merged in, so the Today view
+  // reflects edits made this session without a reload.
+  const liveTrip = useMemo<CanvasTrip>(
+    () => ({
+      ...trip,
+      legs: trip.legs.map((leg) => ({
+        ...leg,
+        days: leg.days.map((day) => ({
+          ...day,
+          stops: dnd.dayStops[day.id] ?? day.stops,
+        })),
+      })),
+    }),
+    [trip, dnd.dayStops],
+  );
+
   // dayId -> "Destination · date" for suggestion cards
   const dayLabels = useMemo(() => {
     const out: Record<string, string> = {};
@@ -53,32 +165,66 @@ export function TripWorkspace({
   }, [trip]);
 
   return (
-    <div className="flex min-h-0 flex-1">
-      <div className="relative flex w-[60%] min-w-0 flex-col border-r border-surface-variant">
-        <TripCanvas
-          trip={trip}
-          dnd={dnd}
-          activeLegId={activeLegId}
-          onSetLeg={setActiveLegId}
-          focusedDayId={focusedDayId}
-          onFocusDay={setFocusedDayId}
-        />
-        <CopilotBar
-          tripId={trip.id}
-          dnd={dnd}
-          dayLabels={dayLabels}
-          initialMessages={initialChat}
-        />
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="flex items-center justify-center border-b border-surface-variant bg-surface-warm py-2">
+        <div className="inline-flex rounded-full border border-surface-variant bg-white p-0.5">
+          {(["plan", "today"] as const).map((v) => (
+            <button
+              key={v}
+              onClick={() => setView(v)}
+              className={cn(
+                "rounded-full px-5 py-1.5 text-sm font-bold capitalize transition-colors",
+                view === v
+                  ? "bg-primary text-white"
+                  : "text-on-surface-variant hover:text-primary",
+              )}
+            >
+              {v}
+            </button>
+          ))}
+        </div>
       </div>
-      <div className="relative w-[40%]">
-        {mapKey ? (
-          <MapPane mapKey={mapKey} stops={focusedStops} near={focusedNear} />
-        ) : (
-          <div className="flex h-full items-center justify-center bg-surface-warm p-6 text-center text-sm text-on-surface-variant/60">
-            Add a MapTiler key to enable the map.
+
+      {view === "today" ? (
+        <TodayView
+          trip={liveTrip}
+          onReplan={replanRestOfDay}
+          replanning={replanning}
+        />
+      ) : (
+        <div className="flex min-h-0 flex-1">
+          <div className="relative flex w-[60%] min-w-0 flex-col border-r border-surface-variant">
+            <TripCanvas
+              trip={trip}
+              dnd={dnd}
+              activeLegId={activeLegId}
+              onSetLeg={setActiveLegId}
+              focusedDayId={focusedDayId}
+              onFocusDay={setFocusedDayId}
+              onAskCopilot={askCopilot}
+              onVerify={verifyPlaces}
+              verifying={verifying}
+              travelLegs={travelLegs}
+            />
+            <CopilotBar
+              tripId={trip.id}
+              dnd={dnd}
+              dayLabels={dayLabels}
+              initialMessages={initialChat}
+              request={copilotRequest}
+            />
           </div>
-        )}
-      </div>
+          <div className="relative w-[40%]">
+            {mapKey ? (
+              <MapPane mapKey={mapKey} stops={focusedStops} near={focusedNear} />
+            ) : (
+              <div className="flex h-full items-center justify-center bg-surface-warm p-6 text-center text-sm text-on-surface-variant/60">
+                Add a MapTiler key to enable the map.
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
