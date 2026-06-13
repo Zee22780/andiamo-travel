@@ -25,11 +25,16 @@ export function TripWorkspace({
   );
 
   // The destination context for the focused day, for geocode biasing.
+  // Append the trip's region/country so ambiguous city names resolve
+  // correctly (e.g. "Florence" -> "Florence, Italy", not Florence, USA).
   const focusedNear = useMemo(() => {
+    const withRegion = (city: string) =>
+      trip.region ? `${city}, ${trip.region}` : city;
     for (const leg of trip.legs) {
-      if (leg.days.some((d) => d.id === focusedDayId)) return leg.destination;
+      if (leg.days.some((d) => d.id === focusedDayId))
+        return withRegion(leg.destination);
     }
-    return trip.legs[0]?.destination ?? "";
+    return trip.legs[0] ? withRegion(trip.legs[0].destination) : "";
   }, [trip, focusedDayId]);
 
   const focusedStops = focusedDayId ? (dnd.dayStops[focusedDayId] ?? []) : [];

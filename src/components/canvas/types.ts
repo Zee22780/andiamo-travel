@@ -33,5 +33,6 @@ export type CanvasLeg = {
 export type CanvasTrip = {
   id: string;
   name: string;
+  region: string | null; // country/region for geocoding disambiguation
   legs: CanvasLeg[];
 };

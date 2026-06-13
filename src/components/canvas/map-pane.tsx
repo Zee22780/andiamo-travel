@@ -84,11 +84,24 @@ export function MapPane({
       // Anchor on the destination so we can reject mis-geocoded stops
       // (descriptive titles like "Walk across the bridge to Gaia" sometimes
       // resolve far away). P2's Places verification removes the need for this.
-      const anchorMap = await geocodeStops(
-        [{ id: "__anchor__", title: near } as CanvasStop],
-        near,
-      );
-      const anchor = anchorMap.get("__anchor__") ?? null;
+      // Geocode the destination itself with no extra context (it already
+      // includes the region, e.g. "Florence, Italy").
+      let anchor: [number, number] | null = null;
+      try {
+        const aRes = await fetch("/api/geocode", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ items: [{ id: "__anchor__", query: near }] }),
+        });
+        if (aRes.ok) {
+          const { coords } = (await aRes.json()) as {
+            coords: Record<string, [number, number]>;
+          };
+          anchor = coords["__anchor__"] ?? null;
+        }
+      } catch {
+        // non-fatal; fit falls back to stop points
+      }
       const coords = await geocodeStops(stops, near);
       if (cancelled || !map.current) return;
 
@@ -145,8 +158,15 @@ export function MapPane({
       if (m.isStyleLoaded()) applyRoute();
       else m.once("load", applyRoute);
 
-      if (points.length === 1) {
-        m.flyTo({ center: points[0], zoom: 14 });
+      if (points.length === 1 && anchor) {
+        // One stop is too thin to trust the geocode fully (it may be a nearby
+        // town, not the city). Frame the destination too so we never strand
+        // the user on a mis-resolved pin.
+        const b = new maplibregl.LngLatBounds(anchor, anchor);
+        b.extend(points[0]);
+        m.fitBounds(b, { padding: 96, maxZoom: 13, duration: 600 });
+      } else if (points.length === 1) {
+        m.flyTo({ center: points[0], zoom: 13 });
       } else if (points.length > 1) {
         const b = new maplibregl.LngLatBounds(points[0], points[0]);
         points.forEach((p) => b.extend(p));

@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,6 +22,8 @@ export function IntakeChat() {
   const [drafting, setDrafting] = useState(false);
   const [draftProgress, setDraftProgress] = useState(0);
   const [itinerary, setItinerary] = useState<PreviewItinerary | null>(null);
+  const [tripId, setTripId] = useState<string | null>(null);
+  const router = useRouter();
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -131,8 +134,11 @@ export function IntakeChat() {
           } else if (event === "itinerary") {
             setItinerary(JSON.parse(data) as PreviewItinerary);
           } else if (event === "trip") {
-            const { tripId } = JSON.parse(data) as { tripId: string };
-            window.history.replaceState(null, "", `/trips/${tripId}`);
+            const { tripId: id } = JSON.parse(data) as { tripId: string };
+            setTripId(id);
+            // Land on the editable canvas (the real workspace), not the
+            // read-only preview.
+            router.push(`/trips/${id}`);
           } else if (event === "error") {
             throw new Error((JSON.parse(data) as { message: string }).message);
           }
@@ -150,10 +156,29 @@ export function IntakeChat() {
     } finally {
       setDrafting(false);
     }
-  }, [drafting, summary]);
+  }, [drafting, summary, router]);
 
   if (itinerary) {
-    return <ItineraryPreview itinerary={itinerary} />;
+    return (
+      <div className="flex flex-1 flex-col">
+        <div className="flex items-center justify-between gap-3 border-b border-surface-variant bg-surface-warm px-6 py-3">
+          <span className="text-sm font-medium text-on-surface-variant">
+            {tripId
+              ? "Opening your editable itinerary…"
+              : "Finishing up your itinerary…"}
+          </span>
+          {tripId && (
+            <a
+              href={`/trips/${tripId}`}
+              className="rounded-full bg-primary px-5 py-2 text-sm font-bold text-white transition-transform hover:opacity-90 active:scale-95"
+            >
+              Open editable itinerary →
+            </a>
+          )}
+        </div>
+        <ItineraryPreview itinerary={itinerary} />
+      </div>
+    );
   }
 
   return (
@@ -179,16 +204,21 @@ export function IntakeChat() {
             </div>
           ))}
           {summary.chips.length > 0 && !streaming && (
-            <div className="flex flex-wrap gap-2">
-              {summary.chips.map((chip) => (
-                <button
-                  key={chip}
-                  onClick={() => send(chip)}
-                  className="rounded-full border border-surface-variant/60 bg-white px-4 py-2 text-xs font-bold text-on-surface-variant shadow-sm transition-all hover:border-primary/40 hover:text-primary"
-                >
-                  {chip}
-                </button>
-              ))}
+            <div className="space-y-1.5">
+              <p className="text-xs font-medium text-on-surface-variant/60">
+                Tap a quick reply, or just type your answer
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {summary.chips.map((chip) => (
+                  <button
+                    key={chip}
+                    onClick={() => send(chip)}
+                    className="rounded-full border border-surface-variant/60 bg-white px-4 py-2 text-xs font-bold text-on-surface-variant shadow-sm transition-all hover:border-primary/40 hover:text-primary"
+                  >
+                    {chip}
+                  </button>
+                ))}
+              </div>
             </div>
           )}
         </div>
