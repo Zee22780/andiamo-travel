@@ -245,6 +245,8 @@ export async function loadCanvasTrip(
           durationMin: stop.durationMin,
           sortOrder: stop.sortOrder,
           verification: stop.verification,
+          lat: stop.lat,
+          lng: stop.lng,
           costEstimate: stop.costEstimate,
           mustDo: stop.mustDo,
         })),

@@ -25,6 +25,8 @@ export function TripCanvas({
   focusedDayId,
   onFocusDay,
   onAskCopilot,
+  onVerify,
+  verifying,
 }: {
   trip: CanvasTrip;
   dnd: CanvasDndState;
@@ -33,6 +35,8 @@ export function TripCanvas({
   focusedDayId: string | null;
   onFocusDay: (id: string) => void;
   onAskCopilot: (prompt: string) => void;
+  onVerify: () => void;
+  verifying: boolean;
 }) {
   const {
     dayStops,
@@ -117,10 +121,19 @@ export function TripCanvas({
             </button>
           </span>
         ))}
+        <button
+          onClick={onVerify}
+          disabled={verifying}
+          title="Check that AI-suggested places resolve to a real location"
+          className="ml-auto rounded-lg border border-primary/30 px-3 py-1.5 text-sm font-bold text-primary transition-all hover:bg-primary/5 disabled:opacity-60"
+        >
+          {verifying ? "Verifying…" : "✓ Verify places"}
+        </button>
       </div>
 
       {/* Day columns */}
       <DndContext
+        id="trip-canvas-dnd"
         sensors={sensors}
         collisionDetection={closestCorners}
         onDragStart={onDragStart}

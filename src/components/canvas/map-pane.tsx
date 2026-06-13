@@ -102,8 +102,17 @@ export function MapPane({
       } catch {
         // non-fatal; fit falls back to stop points
       }
-      const coords = await geocodeStops(stops, near);
+      // Verified stops carry stored coordinates; only geocode the rest.
+      const coords = await geocodeStops(
+        stops.filter((s) => s.lat == null || s.lng == null),
+        near,
+      );
       if (cancelled || !map.current) return;
+
+      const coordFor = (stop: CanvasStop): [number, number] | undefined =>
+        stop.lat != null && stop.lng != null
+          ? [stop.lng, stop.lat]
+          : coords.get(stop.id);
 
       const nearAnchor = (c: [number, number]) =>
         !anchor ||
@@ -114,7 +123,7 @@ export function MapPane({
 
       const points: [number, number][] = [];
       stops.forEach((stop, i) => {
-        const c = coords.get(stop.id);
+        const c = coordFor(stop);
         if (!c || !nearAnchor(c)) return;
         points.push(c);
         const el = document.createElement("div");

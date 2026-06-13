@@ -30,6 +30,28 @@ export function TripWorkspace({
   const askCopilot = (text: string) =>
     setCopilotRequest((r) => ({ text, n: (r?.n ?? 0) + 1 }));
 
+  // Trust layer: verify AI place stops against MapTiler, then resync so the
+  // Verified/Flagged badges and accurate pins appear without a reload.
+  const [verifying, setVerifying] = useState(false);
+  const verifyPlaces = async () => {
+    if (verifying) return;
+    setVerifying(true);
+    try {
+      const res = await fetch(`/api/trips/${trip.id}/verify`, {
+        method: "POST",
+      });
+      if (!res.ok) return;
+      const state = await fetch(`/api/trips/${trip.id}/state`, {
+        cache: "no-store",
+      });
+      if (!state.ok) return;
+      const { trip: fresh } = (await state.json()) as { trip: CanvasTrip };
+      dnd.resync(buildDayStops(fresh.legs.flatMap((l) => l.days)));
+    } finally {
+      setVerifying(false);
+    }
+  };
+
   const dnd = useCanvasDnd(
     useMemo(() => buildDayStops(trip.legs.flatMap((l) => l.days)), [trip]),
   );
@@ -73,6 +95,8 @@ export function TripWorkspace({
           focusedDayId={focusedDayId}
           onFocusDay={setFocusedDayId}
           onAskCopilot={askCopilot}
+          onVerify={verifyPlaces}
+          verifying={verifying}
         />
         <CopilotBar
           tripId={trip.id}

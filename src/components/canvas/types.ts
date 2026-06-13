@@ -10,6 +10,8 @@ export type CanvasStop = {
   durationMin: number | null;
   sortOrder: number;
   verification: "unverified" | "verified" | "flagged";
+  lat: number | null; // stored by the verification pass; null until verified
+  lng: number | null;
   costEstimate: number | null;
   mustDo: boolean;
 };
