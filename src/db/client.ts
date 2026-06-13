@@ -8,7 +8,11 @@ declare global {
 }
 
 function makeDb() {
-  const sql = postgres(process.env.DATABASE_URL!, {
+  // Strip surrounding quotes/whitespace: local dotenv strips them, but a value
+  // pasted into a host's env UI (e.g. Vercel) can keep literal quotes, which
+  // makes the connection string an invalid URL at build/runtime.
+  const url = (process.env.DATABASE_URL ?? "").trim().replace(/^['"]|['"]$/g, "");
+  const sql = postgres(url, {
     prepare: false, // required behind Supabase pooler
     max: 5,
   });
