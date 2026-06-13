@@ -5,6 +5,7 @@ import {
   SortableContext,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
+import { cn } from "@/lib/utils";
 import { SortableStop } from "./sortable-stop";
 import { CanvasDay, CanvasLeg, CanvasStop } from "./types";
 
@@ -14,18 +15,30 @@ export function DayColumn({
   dayNumber,
   stops,
   dateLabel,
+  focused,
+  onFocus,
 }: {
   leg: CanvasLeg;
   day: CanvasDay;
   dayNumber: number;
   stops: CanvasStop[];
   dateLabel: string;
+  focused: boolean;
+  onFocus: () => void;
 }) {
   const { setNodeRef } = useDroppable({ id: day.id });
 
   return (
     <div className="flex w-[320px] shrink-0 flex-col gap-3">
-      <div className="space-y-0.5">
+      <button
+        onClick={onFocus}
+        className={cn(
+          "space-y-0.5 rounded-lg border px-2 py-1.5 text-left transition-all",
+          focused
+            ? "border-primary/30 bg-primary/5"
+            : "border-transparent hover:bg-white",
+        )}
+      >
         <div className="flex items-baseline justify-between">
           <span className="text-sm font-bold">Day {dayNumber}</span>
           <span className="text-xs font-medium text-on-surface-variant">
@@ -37,7 +50,7 @@ export function DayColumn({
             {day.notes}
           </p>
         )}
-      </div>
+      </button>
       <SortableContext
         items={stops.map((s) => s.id)}
         strategy={verticalListSortingStrategy}

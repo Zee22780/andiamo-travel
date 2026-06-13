@@ -15,6 +15,8 @@ import { CanvasDay, CanvasStop } from "./types";
 
 export type DayStops = Record<string, CanvasStop[]>; // dayId -> ordered stops
 
+export type CanvasDndState = ReturnType<typeof useCanvasDnd>;
+
 export function buildDayStops(days: CanvasDay[]): DayStops {
   return Object.fromEntries(days.map((d) => [d.id, d.stops]));
 }

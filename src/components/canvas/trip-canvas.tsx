@@ -1,12 +1,12 @@
 "use client";
 
 import { DndContext, DragOverlay, closestCorners } from "@dnd-kit/core";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { DayColumn } from "./day-column";
 import { StopCard } from "./stop-card";
 import { CanvasTrip } from "./types";
-import { buildDayStops, useCanvasDnd } from "./use-canvas-dnd";
+import { CanvasDndState } from "./use-canvas-dnd";
 
 function formatDay(date: string) {
   return new Date(`${date}T12:00:00`).toLocaleDateString("en-US", {
@@ -16,15 +16,23 @@ function formatDay(date: string) {
   });
 }
 
-export function TripCanvas({ trip }: { trip: CanvasTrip }) {
-  const [activeLegId, setActiveLegId] = useState<string | null>(null);
+export function TripCanvas({
+  trip,
+  dnd,
+  activeLegId,
+  onSetLeg,
+  focusedDayId,
+  onFocusDay,
+}: {
+  trip: CanvasTrip;
+  dnd: CanvasDndState;
+  activeLegId: string | null;
+  onSetLeg: (id: string | null) => void;
+  focusedDayId: string | null;
+  onFocusDay: (id: string) => void;
+}) {
   const { dayStops, activeStop, sensors, onDragStart, onDragOver, onDragEnd } =
-    useCanvasDnd(
-      useMemo(
-        () => buildDayStops(trip.legs.flatMap((l) => l.days)),
-        [trip],
-      ),
-    );
+    dnd;
 
   const allDays = useMemo(
     () =>
@@ -53,7 +61,7 @@ export function TripCanvas({ trip }: { trip: CanvasTrip }) {
           Route
         </span>
         <button
-          onClick={() => setActiveLegId(null)}
+          onClick={() => onSetLeg(null)}
           className={cn(
             "rounded-lg px-3 py-1.5 text-sm font-medium transition-all",
             activeLegId === null
@@ -69,9 +77,7 @@ export function TripCanvas({ trip }: { trip: CanvasTrip }) {
               ›
             </span>
             <button
-              onClick={() =>
-                setActiveLegId(activeLegId === leg.id ? null : leg.id)
-              }
+              onClick={() => onSetLeg(activeLegId === leg.id ? null : leg.id)}
               className={cn(
                 "rounded-lg px-3 py-1.5 text-sm font-medium transition-all",
                 activeLegId === leg.id
@@ -102,6 +108,8 @@ export function TripCanvas({ trip }: { trip: CanvasTrip }) {
               dayNumber={dayNumber}
               stops={dayStops[day.id] ?? []}
               dateLabel={formatDay(day.date)}
+              focused={focusedDayId === day.id}
+              onFocus={() => onFocusDay(day.id)}
             />
           ))}
         </div>

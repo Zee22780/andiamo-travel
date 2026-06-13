@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { TripCanvas } from "@/components/canvas/trip-canvas";
+import { TripWorkspace } from "@/components/canvas/trip-workspace";
 import { CanvasTrip } from "@/components/canvas/types";
 import { loadTrip } from "@/db/trips";
 
@@ -71,7 +71,7 @@ export default async function TripPage({
           Plan another trip
         </a>
       </header>
-      <TripCanvas trip={canvasTrip} />
+      <TripWorkspace trip={canvasTrip} mapKey={process.env.MAPTILER_KEY ?? null} />
     </div>
   );
 }
