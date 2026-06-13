@@ -1,7 +1,67 @@
-import { asc, eq } from "drizzle-orm";
+import { asc, desc, eq, sql } from "drizzle-orm";
 import type { Itinerary, TripSummary } from "@/lib/ai/schemas";
 import { db, DEMO_PROFILE_ID, ensureDemoProfile } from "./client";
 import { days, legs, stops, tripMembers, trips } from "./schema";
+
+export type TripPhase = "upcoming" | "active" | "past" | "planning";
+
+export type TripCard = {
+  id: string;
+  name: string;
+  startDate: string | null;
+  endDate: string | null;
+  route: string[];
+  stopCount: number;
+  phase: TripPhase;
+};
+
+function derivePhase(start: string | null, end: string | null): TripPhase {
+  if (!start || !end) return "planning";
+  const today = new Date().toISOString().slice(0, 10);
+  if (today < start) return "upcoming";
+  if (today > end) return "past";
+  return "active";
+}
+
+export async function loadTrips(): Promise<TripCard[]> {
+  const rows = await db
+    .select({
+      id: trips.id,
+      name: trips.name,
+      createdAt: trips.createdAt,
+      start: sql<string | null>`min(${legs.startDate})`,
+      end: sql<string | null>`max(${legs.endDate})`,
+    })
+    .from(trips)
+    .leftJoin(legs, eq(legs.tripId, trips.id))
+    .where(eq(trips.createdBy, DEMO_PROFILE_ID))
+    .groupBy(trips.id)
+    .orderBy(desc(trips.createdAt));
+
+  return Promise.all(
+    rows.map(async (r) => {
+      const tripLegs = await db.query.legs.findMany({
+        where: eq(legs.tripId, r.id),
+        orderBy: asc(legs.sortOrder),
+      });
+      const [{ count }] = await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(stops)
+        .innerJoin(days, eq(days.id, stops.dayId))
+        .innerJoin(legs, eq(legs.id, days.legId))
+        .where(eq(legs.tripId, r.id));
+      return {
+        id: r.id,
+        name: r.name,
+        startDate: r.start,
+        endDate: r.end,
+        route: tripLegs.map((l) => l.destination),
+        stopCount: count,
+        phase: derivePhase(r.start, r.end),
+      };
+    }),
+  );
+}
 
 export async function saveItinerary(
   itinerary: Itinerary,
