@@ -10,6 +10,7 @@ export type CanvasStop = {
   durationMin: number | null;
   sortOrder: number;
   verification: "unverified" | "verified" | "flagged";
+  placeId: string | null; // Google place_id, set by the verification pass; drives Place Photos
   lat: number | null; // stored by the verification pass; null until verified
   lng: number | null;
   costEstimate: number | null;

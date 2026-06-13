@@ -1,3 +1,4 @@
+import { PlacePhoto } from "@/components/place-photo";
 import { loadTrips, TripPhase } from "@/db/trips";
 
 export const metadata = { title: "Your trips — Andiamo" };
@@ -95,20 +96,27 @@ export default async function TripsDashboard() {
                   href={`/trips/${trip.id}`}
                   className="group flex flex-col overflow-hidden rounded-xl border border-surface-variant/60 bg-white shadow-sm transition-shadow hover:shadow-md"
                 >
-                  <div
-                    className={`relative h-24 bg-gradient-to-br ${phase.gradient}`}
+                  <PlacePhoto
+                    query={trip.route[0] ?? undefined}
+                    width={600}
+                    gradient={`bg-gradient-to-br ${phase.gradient}`}
+                    className="h-28"
                   >
+                    <div
+                      aria-hidden
+                      className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/10 to-black/15"
+                    />
                     <span
                       className={`absolute right-3 top-3 rounded-full bg-white/95 px-2.5 py-0.5 text-[11px] font-bold shadow-sm ${phase.pillText}`}
                     >
                       {phase.label}
                     </span>
                     {trip.route[0] && (
-                      <span className="absolute inset-x-4 bottom-3 truncate font-headline text-lg font-bold text-white/95">
+                      <span className="absolute inset-x-4 bottom-3 truncate font-headline text-lg font-bold text-white drop-shadow">
                         {trip.route[0]}
                       </span>
                     )}
-                  </div>
+                  </PlacePhoto>
                   <div className="flex flex-1 flex-col gap-2 p-5">
                     <h2 className="font-headline text-lg font-bold leading-tight group-hover:text-primary">
                       {trip.name}
