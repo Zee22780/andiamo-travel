@@ -149,7 +149,7 @@ export function Hero() {
           <a
             data-hero="cta"
             href="#how"
-            className="rounded-full bg-accent px-7 py-3.5 text-center text-base font-bold text-white shadow-lg transition-transform hover:opacity-95 active:scale-95"
+            className="rounded-full bg-electric px-7 py-3.5 text-center text-base font-bold text-white shadow-lg transition-transform hover:opacity-95 active:scale-95"
           >
             See how it works
           </a>

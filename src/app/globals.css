@@ -8,6 +8,7 @@
 :root {
   --color-primary: #0e7c6b;
   --color-accent: #d96f32;
+  --color-electric: #1a4dff; /* electric blue — bold, energetic accent */
   --color-surface-warm: #faf8f5;
   --color-surface: #ffffff;
   --color-surface-variant: #e1e3e1;
@@ -50,6 +51,7 @@
 @theme inline {
   --color-primary: var(--color-primary);
   --color-accent: var(--color-accent);
+  --color-electric: var(--color-electric);
   --color-surface-warm: var(--color-surface-warm);
   --color-surface: var(--color-surface);
   --color-surface-variant: var(--color-surface-variant);
