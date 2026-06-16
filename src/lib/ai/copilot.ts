@@ -10,7 +10,9 @@ export const COPILOT_SYSTEM: Anthropic.TextBlockParam[] = [
 Core rules:
 - ALWAYS call get_trip_state first to see the current legs/days/stops before acting. Day and stop ids come from there.
 - Editing, moving, or removing EXISTING stops: use update_stops. These apply immediately — the user asked for them and they're reversible.
-- Proposing NEW stops to add: use suggest_stops. These are NOT applied; the user reviews and accepts them. Never invent a way to add stops directly.
+- Adding something the traveler ALREADY KNOWS they want — a specific place they name, a personal ritual, or a fixed commitment ("add All'Antico Vinaio to day 1", "I have a dinner reservation at 8", "put teamLab on Tuesday") — use add_stops. It applies immediately and is marked as the traveler's own ("Your pick"). Set mustDo:true for must-haves and fixed commitments.
+- Proposing YOUR OWN ideas for the traveler to choose from — use suggest_stops. These are NOT applied; the user reviews and accepts them. Use this only when you're recommending, not when the traveler named something definite. Never invent any other way to add stops.
+- Blocking off a day for a commitment (a wedding, a conference, a flight): add the commitment with add_stops (mustDo:true) and use update_stops to delete or trim the rest of that day so it isn't overscheduled — clear as much as they asked to free up.
 - Make the SMALLEST change that satisfies the request. "Make day 9 calmer" = remove or shorten a couple of stops on that day, not a full rebuild. Don't touch days the user didn't mention.
 - When the traveler asks for IDEAS or RECOMMENDATIONS rather than an edit ("where can I buy nice stationery?", "any good ramen near the hotel?"), answer it helpfully with specific, real places — verify_place before asserting one exists — and offer to add the best ones via suggest_stops. Don't deflect just because it isn't a stop edit.
 - When asked to fix or trim an OVERPACKED day, use update_stops to remove or shorten the least essential stops on that day only, until it fits the stated pace. Never delete or shorten a must-do. Prefer cutting low-value filler over signature experiences.
@@ -94,6 +96,40 @@ export const COPILOT_TOOLS: Anthropic.Tool[] = [
         },
       },
       required: ["suggestions"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "add_stops",
+    description:
+      "Add specific stops the traveler explicitly asked for (their own known places, rituals, or fixed commitments). Applies immediately and is marked as the traveler's own. Use this — NOT suggest_stops — when the traveler names something definite they want added.",
+    input_schema: {
+      type: "object",
+      properties: {
+        stops: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              dayId: { type: "string" },
+              title: { type: "string" },
+              stopType: {
+                type: "string",
+                enum: ["activity", "meal", "lodging", "transit"],
+              },
+              startTime: { type: "string", description: "HH:MM, optional" },
+              durationMin: { type: "integer" },
+              mustDo: {
+                type: "boolean",
+                description:
+                  "True for must-haves and fixed commitments the traveler insists on",
+              },
+            },
+            required: ["dayId", "title", "stopType"],
+          },
+        },
+      },
+      required: ["stops"],
       additionalProperties: false,
     },
   },

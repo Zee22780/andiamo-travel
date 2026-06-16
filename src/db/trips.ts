@@ -1,4 +1,4 @@
-import { asc, desc, eq, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, sql } from "drizzle-orm";
 import type { CanvasTrip } from "@/components/canvas/types";
 import type { Itinerary, TripSummary } from "@/lib/ai/schemas";
 import { db, DEMO_PROFILE_ID, ensureDemoProfile } from "./client";
@@ -177,6 +177,64 @@ export async function applyStopOperations(
     }
   });
   return { applied };
+}
+
+// Insert a single stop into a day, slotting a timed stop into start-time order
+// (matching the AI's time-ordered stops) and appending an untimed one. Shared
+// by the manual/accepted add route and the copilot's add_stops tool.
+export async function addStop(input: {
+  dayId: string;
+  type: "activity" | "meal" | "lodging" | "transit";
+  title: string;
+  startTime?: string | null;
+  durationMin?: number | null;
+  mustDo?: boolean;
+  source?: "ai" | "user";
+  verification?: "unverified" | "verified" | "flagged";
+}) {
+  const { dayId, type, title } = input;
+  const startTime = input.startTime ?? null;
+
+  const existing = await db
+    .select({ sortOrder: stops.sortOrder, startTime: stops.startTime })
+    .from(stops)
+    .where(eq(stops.dayId, dayId))
+    .orderBy(asc(stops.sortOrder));
+
+  // Insert before the first stop scheduled later in the day; otherwise append.
+  const maxOrder = existing.length
+    ? Math.max(...existing.map((s) => s.sortOrder)) + 1
+    : 0;
+  const laterTimed = startTime
+    ? existing.find(
+        (s) => s.startTime != null && s.startTime.slice(0, 5) > startTime,
+      )
+    : undefined;
+  const insertAt = laterTimed ? laterTimed.sortOrder : maxOrder;
+
+  return db.transaction(async (tx) => {
+    if (laterTimed) {
+      await tx
+        .update(stops)
+        .set({ sortOrder: sql`${stops.sortOrder} + 1` })
+        .where(and(eq(stops.dayId, dayId), gte(stops.sortOrder, insertAt)));
+    }
+    const [row] = await tx
+      .insert(stops)
+      .values({
+        dayId,
+        type,
+        title,
+        startTime,
+        durationMin: input.durationMin ?? null,
+        sortOrder: insertAt,
+        mustDo: input.mustDo ?? false,
+        source: input.source ?? "ai",
+        ...(input.verification ? { verification: input.verification } : {}),
+      })
+      .returning();
+    return row;
+  });
 }
 
 export async function loadTrip(tripId: string) {

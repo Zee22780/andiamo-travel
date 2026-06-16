@@ -3,6 +3,7 @@ import { NextRequest } from "next/server";
 import { COPILOT_SYSTEM, COPILOT_TOOLS } from "@/lib/ai/copilot";
 import { loadChat, saveChatMessage } from "@/db/chat";
 import {
+  addStop,
   applyStopOperations,
   loadTrip,
   loadTripRegion,
@@ -100,6 +101,39 @@ export async function POST(
                 type: "tool_result",
                 tool_use_id: block.id,
                 content: JSON.stringify({ applied }),
+              });
+            } else if (block.name === "add_stops") {
+              // The traveler named something definite — add it directly,
+              // attributed to them (source=user → "Your pick" badge). Counts as
+              // an applied change so the board resyncs.
+              const { stops: toAdd } = block.input as {
+                stops: {
+                  dayId: string;
+                  title: string;
+                  stopType: "activity" | "meal" | "lodging" | "transit";
+                  startTime?: string;
+                  durationMin?: number;
+                  mustDo?: boolean;
+                }[];
+              };
+              let added = 0;
+              for (const s of toAdd ?? []) {
+                await addStop({
+                  dayId: s.dayId,
+                  type: s.stopType,
+                  title: s.title,
+                  startTime: s.startTime ?? null,
+                  durationMin: s.durationMin ?? null,
+                  mustDo: s.mustDo ?? false,
+                  source: "user",
+                });
+                added++;
+              }
+              appliedTotal += added;
+              toolResults.push({
+                type: "tool_result",
+                tool_use_id: block.id,
+                content: JSON.stringify({ added }),
               });
             } else if (block.name === "suggest_stops") {
               const { suggestions } = block.input as { suggestions: unknown[] };
