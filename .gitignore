@@ -34,3 +34,5 @@ map-*.jpeg
 # screenshots / scratch
 *.jpeg
 *.png
+# but keep real app icon assets (not scratch screenshots)
+!src/app/apple-icon.png

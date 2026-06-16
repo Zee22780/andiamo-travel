@@ -1,0 +1,20 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fbf7f0"/>
+      <stop offset="1" stop-color="#eee4d3"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="116" fill="url(#tile)"/>
+  <rect x="5" y="5" width="502" height="502" rx="111" fill="none" stroke="#e4d9c4" stroke-width="6"/>
+  <g transform="translate(256 256) rotate(-37) scale(13) translate(-12.5 -12)">
+    <!-- motion trail: paper plane taking off -->
+    <circle cx="-2.5" cy="12" r="0.85" fill="#1a4dff" opacity="0.5"/>
+    <circle cx="-6" cy="12" r="0.66" fill="#1a4dff" opacity="0.32"/>
+    <circle cx="-9.5" cy="12" r="0.5" fill="#1a4dff" opacity="0.2"/>
+    <!-- plane body -->
+    <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" fill="#1a4dff"/>
+    <!-- lower-wing fold (depth) -->
+    <path d="M2.01 21L23 12 17 12 2 14z" fill="#1438c9"/>
+  </g>
+</svg>
