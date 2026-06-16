@@ -111,7 +111,9 @@ export function IntakeChat() {
       const res = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ summary }),
+        // Send the visible transcript so the original interview is saved as the
+        // trip's conversation and the copilot can pick it back up on the canvas.
+        body: JSON.stringify({ summary, messages }),
       });
       if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
 

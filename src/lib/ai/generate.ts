@@ -13,6 +13,7 @@ Planning rules:
 - Respect geography within a day: cluster stops by neighborhood so the day is physically walkable/transit-able. Never schedule stops on opposite sides of a city back-to-back.
 - First day of a leg starts after likely arrival/transit time; include a transit stop between legs on changeover days.
 - Match interests heavily but include 1-2 canonical sights per destination even if off-interest.
+- When the traveler names a SPECIFIC passion (e.g. stationery, vinyl records, specialty coffee, bouldering, vintage fashion), schedule at least one real, named venue that serves it (e.g. Itoya or Tokyu Hands for stationery in Tokyo) — don't let canonical must-sees crowd out the niche interests they actually asked for.
 - Budget shapes meal and activity choices (shoestring=street food/free sights … luxury=fine dining/private tours).
 - Add a rest day or light day roughly every 6-7 days on trips over 10 days.
 - lodging on each leg = a neighborhood recommendation, not a specific hotel.

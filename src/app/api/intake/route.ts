@@ -21,6 +21,21 @@ export async function POST(req: NextRequest) {
   const client = new Anthropic();
   const encoder = new TextEncoder();
 
+  // Anchor relative/partial dates ("October", "next month") to a real calendar
+  // and keep the trip in the future. Appended AFTER the frozen INTAKE_SYSTEM so
+  // this volatile value never invalidates the cached prefix (cache_control sits
+  // on the last frozen block).
+  const today = new Date().toLocaleDateString("en-US", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+  const system: Anthropic.TextBlockParam[] = [
+    ...INTAKE_SYSTEM,
+    { type: "text", text: `Today's date is ${today}. The traveler is planning an upcoming trip — resolve any month or season they name to its next future occurrence and never propose dates in the past.` },
+  ];
+
   const stream = new ReadableStream({
     async start(controller) {
       const send = (event: string, data: unknown) =>
@@ -32,7 +47,7 @@ export async function POST(req: NextRequest) {
           model: "claude-opus-4-8",
           max_tokens: 1024,
           output_config: { effort: "low" }, // short interview turns; latency matters
-          system: INTAKE_SYSTEM,
+          system,
           tools: [UPDATE_TRIP_SUMMARY_TOOL],
           messages,
         });

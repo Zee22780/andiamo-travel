@@ -4,6 +4,27 @@ import { NextRequest } from "next/server";
 import { GENERATE_SYSTEM } from "@/lib/ai/generate";
 import { ItinerarySchema, TripSummary } from "@/lib/ai/schemas";
 import { saveItinerary } from "@/db/trips";
+import { seedChatMessages } from "@/db/chat";
+
+type IntakeMessage = { role: "user" | "assistant"; content: string };
+
+// Keep only well-formed transcript turns; ignore anything malformed so a bad
+// body can never break generation.
+function sanitizeTranscript(input: unknown): IntakeMessage[] {
+  if (!Array.isArray(input)) return [];
+  return input.flatMap((m) => {
+    if (
+      m &&
+      typeof m === "object" &&
+      (m.role === "user" || m.role === "assistant") &&
+      typeof m.content === "string" &&
+      m.content.trim()
+    ) {
+      return [{ role: m.role, content: m.content }];
+    }
+    return [];
+  });
+}
 
 // Vercel Hobby caps function execution at 60s. Large multi-week generations
 // can brush against this — keep new trips shorter when testing on Hobby, or
@@ -15,12 +36,16 @@ export const maxDuration = 60;
 //   event "itinerary" data {…Itinerary} — final validated itinerary
 //   event "done" / "error"
 export async function POST(req: NextRequest) {
-  const { summary } = (await req.json()) as { summary: unknown };
+  const { summary, messages } = (await req.json()) as {
+    summary: unknown;
+    messages?: unknown;
+  };
   if (!summary || typeof summary !== "object") {
     return new Response(JSON.stringify({ error: "summary required" }), {
       status: 400,
     });
   }
+  const transcript = sanitizeTranscript(messages);
 
   const client = new Anthropic();
   const encoder = new TextEncoder();
@@ -68,6 +93,9 @@ export async function POST(req: NextRequest) {
           itinerary,
           summary as Partial<TripSummary>,
         );
+        // Persist the intake interview as the trip's opening conversation so
+        // the traveler can return to it from the canvas copilot.
+        if (transcript.length) await seedChatMessages(tripId, transcript);
         send("trip", { tripId });
         send("done", {});
       } catch (error) {

@@ -43,6 +43,13 @@ export function CopilotBar({
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [open, setOpen] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  // When the panel opens (or new turns stream in), keep the latest message in
+  // view; the earlier intake interview is a scroll up from there.
+  useEffect(() => {
+    if (open) scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
+  }, [open, messages]);
 
   // Fire canvas-originated prompts ("Fix this day") through the same send path.
   // Track the last-handled request number so each click sends exactly once.
@@ -173,7 +180,10 @@ export function CopilotBar({
   return (
     <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 flex flex-col items-center px-4 pb-5">
       {open && hasContent && (
-        <div className="pointer-events-auto mb-3 max-h-80 w-full max-w-2xl overflow-y-auto rounded-2xl border border-surface-variant bg-white/95 p-4 shadow-xl backdrop-blur">
+        <div
+          ref={scrollRef}
+          className="pointer-events-auto mb-3 max-h-80 w-full max-w-2xl overflow-y-auto rounded-2xl border border-surface-variant bg-white/95 p-4 shadow-xl backdrop-blur"
+        >
           <div className="space-y-3">
             {messages.map((m, i) => (
               <div
@@ -232,15 +242,30 @@ export function CopilotBar({
 
       {!open && (
         <div className="pointer-events-auto mb-2 flex flex-wrap justify-center gap-2">
-          {STARTERS.map((s) => (
+          {messages.length > 0 ? (
+            // There's a saved conversation (incl. the original intake interview)
+            // — make returning to it the obvious action.
             <button
-              key={s}
-              onClick={() => send(s)}
-              className="rounded-full border border-surface-variant/60 bg-white px-3 py-1.5 text-xs font-bold text-on-surface-variant shadow-sm transition-all hover:border-primary/40 hover:text-primary"
+              onClick={() => setOpen(true)}
+              className="flex items-center gap-1.5 rounded-full border border-surface-variant/60 bg-white px-4 py-1.5 text-xs font-bold text-on-surface-variant shadow-sm transition-all hover:border-primary/40 hover:text-primary"
             >
-              {s}
+              <span aria-hidden>💬</span>
+              View conversation
+              <span className="font-medium text-on-surface-variant/50">
+                · {messages.length}
+              </span>
             </button>
-          ))}
+          ) : (
+            STARTERS.map((s) => (
+              <button
+                key={s}
+                onClick={() => send(s)}
+                className="rounded-full border border-surface-variant/60 bg-white px-3 py-1.5 text-xs font-bold text-on-surface-variant shadow-sm transition-all hover:border-primary/40 hover:text-primary"
+              >
+                {s}
+              </button>
+            ))
+          )}
         </div>
       )}
 
