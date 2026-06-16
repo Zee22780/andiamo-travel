@@ -53,14 +53,23 @@ export function StopCard({
   dragging,
   onEdit,
   onDelete,
+  onVerify,
+  verifying,
 }: {
   stop: CanvasStop;
   dragging?: boolean;
   onEdit?: () => void;
   onDelete?: () => void;
+  onVerify?: () => void;
+  verifying?: boolean;
 }) {
   // Buttons must swallow pointerdown so they don't start a drag.
   const stop_ = (e: React.PointerEvent) => e.stopPropagation();
+  // A per-card "Verify" affordance for places that haven't been confirmed yet.
+  const canVerify =
+    onVerify &&
+    stop.verification === "unverified" &&
+    (stop.type === "activity" || stop.type === "meal");
   return (
     <div
       className={cn(
@@ -127,6 +136,16 @@ export function StopCard({
               verification={stop.verification}
               source={stop.source}
             />
+            {canVerify && (
+              <button
+                onPointerDown={stop_}
+                onClick={onVerify}
+                disabled={verifying}
+                className="rounded-full border border-primary/30 px-2 py-0.5 text-[10px] font-bold text-primary transition-colors hover:bg-primary/5 disabled:opacity-60"
+              >
+                {verifying ? "Verifying…" : "Verify"}
+              </button>
+            )}
           </div>
         </div>
       </div>

@@ -28,6 +28,8 @@ export function TripCanvas({
   onAskCopilot,
   onVerify,
   verifying,
+  onVerifyStop,
+  verifyingStopId,
   travelLegs,
   isDesktop,
 }: {
@@ -40,6 +42,8 @@ export function TripCanvas({
   onAskCopilot: (prompt: string) => void;
   onVerify: () => void;
   verifying: boolean;
+  onVerifyStop: (stopId: string) => void;
+  verifyingStopId: string | null;
   travelLegs: TravelLegMap;
   isDesktop: boolean | null;
 }) {
@@ -259,6 +263,8 @@ export function TripCanvas({
               onAddStop={addStop}
               onUpdateStop={updateStop}
               onDeleteStop={deleteStop}
+              onVerifyStop={onVerifyStop}
+              verifyingStopId={verifyingStopId}
               onFixDay={() =>
                 askFixDay(leg, day, dayNumber, dayStops[day.id] ?? [])
               }

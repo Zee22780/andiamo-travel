@@ -73,6 +73,26 @@ export function TripWorkspace({
     }
   };
 
+  // Per-card verify: confirm a single stop against Places, then resync so just
+  // that card's badge (and photo/pin) updates.
+  const [verifyingStopId, setVerifyingStopId] = useState<string | null>(null);
+  const verifyStop = async (stopId: string) => {
+    if (verifyingStopId) return;
+    setVerifyingStopId(stopId);
+    try {
+      const res = await fetch(`/api/stops/${stopId}/verify`, { method: "POST" });
+      if (!res.ok) return;
+      const state = await fetch(`/api/trips/${trip.id}/state`, {
+        cache: "no-store",
+      });
+      if (!state.ok) return;
+      const { trip: fresh } = (await state.json()) as { trip: CanvasTrip };
+      dnd.resync(buildDayStops(fresh.legs.flatMap((l) => l.days)));
+    } finally {
+      setVerifyingStopId(null);
+    }
+  };
+
   const dnd = useCanvasDnd(
     useMemo(() => buildDayStops(trip.legs.flatMap((l) => l.days)), [trip]),
   );
@@ -208,6 +228,8 @@ export function TripWorkspace({
                 onAskCopilot={askCopilot}
                 onVerify={verifyPlaces}
                 verifying={verifying}
+                onVerifyStop={verifyStop}
+                verifyingStopId={verifyingStopId}
                 travelLegs={travelLegs}
                 isDesktop={isDesktop}
               />

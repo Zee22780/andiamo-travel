@@ -16,6 +16,58 @@ import { days, legs, stops, trips } from "./schema";
 // country doesn't win, and drop matches that land far outside the metro.
 const MAX_DEG_FROM_ANCHOR = 0.4; // ~40km
 
+type StopRow = typeof stops.$inferSelect;
+type Bias = { lat: number; lng: number } | undefined;
+
+// Resolve one stop against Places (biased to its leg city) and store the result:
+// place_id + coords on a confident match, and a verification status from the
+// live business_status. Returns the status. Shared by the trip-wide pass and
+// the single-stop verify.
+async function verifyStopRow(
+  stop: StopRow,
+  destination: string,
+  bias: Bias,
+  withRegion: (s: string) => string,
+): Promise<"verified" | "flagged" | "unverified"> {
+  const match = await placeLookup(
+    withRegion(`${stop.title}, ${destination}`),
+    bias,
+  );
+
+  let status: "verified" | "flagged" | "unverified" = "unverified";
+  let placeId: string | null = null;
+  let lat: number | null = null;
+  let lng: number | null = null;
+
+  const inMetro =
+    match.found &&
+    match.lat != null &&
+    match.lng != null &&
+    bias != null &&
+    Math.abs(match.lng - bias.lng) < MAX_DEG_FROM_ANCHOR &&
+    Math.abs(match.lat - bias.lat) < MAX_DEG_FROM_ANCHOR;
+  // If we couldn't anchor the city, accept the match on its own merits.
+  const accept = match.found && (bias == null || inMetro);
+
+  if (accept) {
+    placeId = match.placeId;
+    lat = match.lat;
+    lng = match.lng;
+    status =
+      match.businessStatus === "CLOSED_PERMANENTLY" ||
+      match.businessStatus === "CLOSED_TEMPORARILY"
+        ? "flagged"
+        : "verified"; // OPERATIONAL or unknown — a real, operating place.
+  }
+
+  await db
+    .update(stops)
+    .set({ verification: status, verifiedAt: new Date(), placeId, lat, lng })
+    .where(eq(stops.id, stop.id));
+
+  return status;
+}
+
 export async function verifyTripPlaces(
   tripId: string,
 ): Promise<{
@@ -64,61 +116,46 @@ export async function verifyTripPlaces(
         if (s.type !== "activity" && s.type !== "meal") continue;
         checked++;
 
-        const match = await placeLookup(
-          withRegion(`${s.title}, ${leg.destination}`),
-          bias,
-        );
-
-        // No match, or a match that landed outside the metro (likely a wrong
-        // same-named place): stays "unverified" (AI guess). We don't flag it —
-        // a missing match doesn't mean the place is bad.
-        let status: "verified" | "flagged" | "unverified" = "unverified";
-        let placeId: string | null = null;
-        let lat: number | null = null;
-        let lng: number | null = null;
-
-        const inMetro =
-          match.found &&
-          match.lat != null &&
-          match.lng != null &&
-          bias != null &&
-          Math.abs(match.lng - bias.lng) < MAX_DEG_FROM_ANCHOR &&
-          Math.abs(match.lat - bias.lat) < MAX_DEG_FROM_ANCHOR;
-        // If we couldn't anchor the city, accept the match on its own merits.
-        const accept = match.found && (bias == null || inMetro);
-
-        if (accept) {
-          placeId = match.placeId;
-          lat = match.lat;
-          lng = match.lng;
-          if (
-            match.businessStatus === "CLOSED_PERMANENTLY" ||
-            match.businessStatus === "CLOSED_TEMPORARILY"
-          ) {
-            status = "flagged";
-          } else {
-            // OPERATIONAL or unknown — it's a real, operating place.
-            status = "verified";
-          }
-        }
-
+        const status = await verifyStopRow(s, leg.destination, bias, withRegion);
         if (status === "verified") verified++;
         else if (status === "flagged") flagged++;
         else unconfirmed++;
-
-        await db
-          .update(stops)
-          .set({
-            verification: status,
-            verifiedAt: new Date(),
-            placeId,
-            lat,
-            lng,
-          })
-          .where(eq(stops.id, s.id));
       }
     }
   }
 
   return { checked, verified, flagged, unconfirmed };
+}
+
+// Verify a single stop (the per-card "Verify" action). Anchors to the stop's
+// own leg city and resolves just that place. Unlike the trip-wide pass this
+// doesn't filter by source, so a traveler can also confirm their own "Your
+// pick" places. Returns the resulting status, or null if it couldn't run.
+export async function verifyStopById(
+  stopId: string,
+): Promise<{ status: "verified" | "flagged" | "unverified" } | null> {
+  if (!process.env.GOOGLE_MAPS_API_KEY) return null;
+
+  const stop = await db.query.stops.findFirst({ where: eq(stops.id, stopId) });
+  if (!stop) return null;
+
+  const day = await db.query.days.findFirst({ where: eq(days.id, stop.dayId) });
+  if (!day) return null;
+  const leg = await db.query.legs.findFirst({ where: eq(legs.id, day.legId) });
+  if (!leg) return null;
+  const trip = await db.query.trips.findFirst({ where: eq(trips.id, leg.tripId) });
+
+  const region =
+    (trip?.preferences as { destination?: string | null } | null)
+      ?.destination ?? null;
+  const withRegion = (s: string) => (region ? `${s}, ${region}` : s);
+
+  const anchor = await placeLookup(withRegion(leg.destination));
+  const bias =
+    anchor.found && anchor.lat != null && anchor.lng != null
+      ? { lat: anchor.lat, lng: anchor.lng }
+      : undefined;
+
+  const status = await verifyStopRow(stop, leg.destination, bias, withRegion);
+  return { status };
 }
