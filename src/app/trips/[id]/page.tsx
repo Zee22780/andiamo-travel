@@ -36,13 +36,13 @@ export default async function TripPage({
 
   return (
     <div className="flex h-screen flex-col">
-      <header className="flex items-center justify-between border-b border-surface-variant bg-surface-warm px-6 py-3">
-        <div className="flex items-center gap-4">
+      <header className="flex flex-col items-center gap-3 border-b border-surface-variant bg-surface-warm px-6 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+        <div className="flex flex-col items-center gap-2 sm:flex-row sm:items-center sm:gap-4">
           <a href="/" className="font-headline text-2xl font-black text-primary">
             Andiamo
           </a>
-          <div className="h-6 w-px bg-surface-variant" />
-          <div className="flex flex-col">
+          <div className="hidden h-6 w-px bg-surface-variant sm:block" />
+          <div className="flex flex-col text-center sm:text-left">
             <h1 className="font-headline text-lg font-semibold leading-tight">
               {trip.name}
             </h1>
@@ -53,7 +53,7 @@ export default async function TripPage({
         </div>
         <a
           href="/trips/new"
-          className="rounded-full bg-primary px-5 py-2 text-sm font-bold text-white hover:opacity-90"
+          className="w-full rounded-full bg-primary px-5 py-2 text-center text-sm font-bold text-white hover:opacity-90 sm:w-auto"
         >
           Plan another trip
         </a>
