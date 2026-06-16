@@ -117,7 +117,7 @@ export async function saveItinerary(
               sortOrder: si,
               costEstimate: stop.costEstimate,
               mustDo: stop.mustDo,
-              source: "ai" as const,
+              source: (stop.userAdded ? "user" : "ai") as "user" | "ai",
             })),
           );
         }
@@ -250,6 +250,7 @@ export async function loadCanvasTrip(
           lng: stop.lng,
           costEstimate: stop.costEstimate,
           mustDo: stop.mustDo,
+          source: stop.source,
         })),
       })),
     })),

@@ -13,8 +13,10 @@ const TYPE_ICONS: Record<CanvasStop["type"], string> = {
 
 export function VerificationBadge({
   verification,
+  source,
 }: {
   verification: CanvasStop["verification"];
+  source?: CanvasStop["source"];
 }) {
   if (verification === "verified") {
     return (
@@ -27,6 +29,15 @@ export function VerificationBadge({
     return (
       <span className="rounded-full bg-red-50 px-2 py-0.5 text-[10px] font-bold text-red-700">
         Needs replan
+      </span>
+    );
+  }
+  // A traveler's own pick isn't an AI guess — attribute it to them. The verify
+  // pass can still confirm it later (verified/flagged take precedence above).
+  if (source === "user") {
+    return (
+      <span className="rounded-full bg-surface-variant/40 px-2 py-0.5 text-[10px] font-bold text-on-surface-variant">
+        Your pick
       </span>
     );
   }
@@ -112,7 +123,10 @@ export function StopCard({
               <span>{Math.round(stop.durationMin / 6) / 10}h</span>
             )}
             {stop.costEstimate != null && <span>~${stop.costEstimate}</span>}
-            <VerificationBadge verification={stop.verification} />
+            <VerificationBadge
+              verification={stop.verification}
+              source={stop.source}
+            />
           </div>
         </div>
       </div>

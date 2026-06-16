@@ -14,6 +14,9 @@ Planning rules:
 - First day of a leg starts after likely arrival/transit time; include a transit stop between legs on changeover days.
 - Match interests heavily but include 1-2 canonical sights per destination even if off-interest.
 - When the traveler names a SPECIFIC passion (e.g. stationery, vinyl records, specialty coffee, bouldering, vintage fashion), schedule at least one real, named venue that serves it (e.g. Itoya or Tokyu Hands for stationery in Tokyo) — don't let canonical must-sees crowd out the niche interests they actually asked for.
+- The traveler's "mustInclude" items are NON-NEGOTIABLE — schedule every one as a real, specific stop with mustDo=true and userAdded=true. Honor each item's "when": a date → that exact date; "after check-in" → right after the arrival/transit stop on the arrival day; "evening" → that evening; otherwise place it sensibly by geography. These are the traveler's own picks, not your suggestions — always set userAdded=true on them (and only on them).
+- For a mustInclude item with fixed=true (a wedding, a reservation, a booked tour): anchor it on its day and time and keep the REST of that day light — leave generous breathing room before and after; never pack the day around a fixed commitment.
+- Every other stop you create must have userAdded=false.
 - Budget shapes meal and activity choices (shoestring=street food/free sights … luxury=fine dining/private tours).
 - Add a rest day or light day roughly every 6-7 days on trips over 10 days.
 - lodging on each leg = a neighborhood recommendation, not a specific hotel.

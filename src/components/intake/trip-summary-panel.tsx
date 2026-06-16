@@ -149,6 +149,36 @@ export function TripSummaryPanel({
         )}
       </Row>
 
+      <Row label="Must include">
+        {summary.mustInclude.length > 0 ? (
+          <ul className="space-y-1.5">
+            {summary.mustInclude.map((item, i) => (
+              <li
+                key={`${item.title}-${i}`}
+                className="flex items-start gap-2 text-sm"
+              >
+                <span aria-hidden className="mt-0.5 text-primary">
+                  {item.fixed ? "📌" : "✓"}
+                </span>
+                <span>
+                  <span className="font-semibold">{item.title}</span>
+                  {item.when && (
+                    <span className="text-on-surface-variant"> · {item.when}</span>
+                  )}
+                  {item.fixed && (
+                    <span className="ml-1.5 rounded-full bg-accent/10 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-accent">
+                      fixed
+                    </span>
+                  )}
+                </span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <Unknown />
+        )}
+      </Row>
+
       <div className="mt-auto pt-4">
         <Button
           size="lg"
@@ -256,6 +286,29 @@ export function MobileTripSummary({ summary }: { summary: IntakeSummary }) {
                   {interest}
                 </Badge>
               ))}
+            </div>
+          )}
+          {summary.mustInclude.length > 0 && (
+            <div className="rounded-lg bg-surface-warm px-3 py-2">
+              <div className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant/50">
+                Must include
+              </div>
+              <ul className="mt-1 space-y-0.5">
+                {summary.mustInclude.map((item, i) => (
+                  <li key={`${item.title}-${i}`} className="text-sm">
+                    <span aria-hidden className="text-primary">
+                      {item.fixed ? "📌 " : "✓ "}
+                    </span>
+                    <span className="font-semibold">{item.title}</span>
+                    {item.when && (
+                      <span className="text-on-surface-variant">
+                        {" "}
+                        · {item.when}
+                      </span>
+                    )}
+                  </li>
+                ))}
+              </ul>
             </div>
           )}
         </div>

@@ -1,3 +1,9 @@
+export type MustInclude = {
+  title: string;
+  when: string | null;
+  fixed: boolean;
+};
+
 export type IntakeSummary = {
   destination: string | null;
   route: string[];
@@ -7,6 +13,7 @@ export type IntakeSummary = {
   budget: "shoestring" | "mid" | "comfortable" | "luxury" | null;
   pace: "relaxed" | "balanced" | "packed" | null;
   interests: string[];
+  mustInclude: MustInclude[];
   readyToGenerate: boolean;
   chips: string[];
 };
@@ -25,6 +32,7 @@ export const EMPTY_SUMMARY: IntakeSummary = {
   budget: null,
   pace: null,
   interests: [],
+  mustInclude: [],
   readyToGenerate: false,
   chips: [],
 };

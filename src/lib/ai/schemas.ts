@@ -19,6 +19,11 @@ export const StopSchema = z.object({
     .nullable()
     .describe("Estimated cost per person in USD, null if free/unknown"),
   mustDo: z.boolean(),
+  userAdded: z
+    .boolean()
+    .describe(
+      "True if this stop came from a traveler-specified must-include (their own place, ritual, or fixed commitment), not the AI's own picks",
+    ),
 });
 
 export const DaySchema = z.object({
@@ -55,6 +60,26 @@ export const TripSummarySchema = z.object({
   budget: z.enum(["shoestring", "mid", "comfortable", "luxury"]).nullable(),
   pace: z.enum(["relaxed", "balanced", "packed"]).nullable(),
   interests: z.array(z.string()),
+  mustInclude: z
+    .array(
+      z.object({
+        title: z.string(),
+        when: z
+          .string()
+          .nullable()
+          .describe(
+            "Timing the traveler gave, e.g. a date, 'day 1', 'after check-in', 'evening'; null if none",
+          ),
+        fixed: z
+          .boolean()
+          .describe(
+            "True for a hard commitment that anchors/blocks its day (wedding, reservation)",
+          ),
+      }),
+    )
+    .describe(
+      "Specific places, rituals, or fixed plans the traveler wants guaranteed in the trip",
+    ),
   readyToGenerate: z
     .boolean()
     .describe("True once destination, dates, and travelers are known"),

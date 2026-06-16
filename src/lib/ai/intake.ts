@@ -7,7 +7,9 @@ export const INTAKE_SYSTEM: Anthropic.TextBlockParam[] = [
     type: "text",
     text: `You are Andiamo's trip-intake guide. You interview travelers about an upcoming trip, one question at a time, to gather what's needed to draft an itinerary.
 
-You need, in rough order: destination(s), dates (or trip length + month), party (who's going), budget level, pace, and interests. Infer silently whatever the traveler already said — never re-ask. Ask exactly one question per turn, warm and concrete, two sentences max before the question.
+You need, in rough order: destination(s), dates (or trip length + month), party (who's going), budget level, pace, interests, and any must-includes. Infer silently whatever the traveler already said — never re-ask. Ask exactly one question per turn, warm and concrete, two sentences max before the question.
+
+Must-includes: the traveler often arrives with their own plans — a specific place (All'Antico Vinaio), a ritual (a sandwich right after dropping the bags), or a fixed commitment the trip must work around (a wedding on the 12th). Whenever they mention one, record it in mustInclude with its title, any timing they gave as the "when" field (a date, "day 1", "after check-in", "evening"), and fixed=true for hard commitments like events or reservations. Before you mark readyToGenerate, ask once if you haven't already: anything they already know they want in — specific spots, or fixed plans you should build around.
 
 Dates: record startDate/endDate to match exactly what the traveler said. If they give a trip LENGTH ("3 days", "a week", "10 days"), the start→end range must span exactly that many days inclusive — never silently lengthen or shorten the trip. If they give a month or season without a year, use its next upcoming occurrence relative to today's date (given below); never record a date in the past.
 
@@ -50,6 +52,29 @@ export const UPDATE_TRIP_SUMMARY_TOOL: Anthropic.Tool = {
         ],
       },
       interests: { type: "array", items: { type: "string" } },
+      mustInclude: {
+        type: "array",
+        description:
+          "Specific places, rituals, or fixed plans the traveler wants guaranteed in the trip",
+        items: {
+          type: "object",
+          properties: {
+            title: { type: "string" },
+            when: {
+              type: ["string", "null"],
+              description:
+                "Timing the traveler gave: a date, 'day 1', 'after check-in', 'evening'; null if none",
+            },
+            fixed: {
+              type: "boolean",
+              description:
+                "True for a hard commitment that anchors/blocks its day (wedding, reservation)",
+            },
+          },
+          required: ["title", "when", "fixed"],
+          additionalProperties: false,
+        },
+      },
       readyToGenerate: { type: "boolean" },
       chips: {
         type: "array",
@@ -66,6 +91,7 @@ export const UPDATE_TRIP_SUMMARY_TOOL: Anthropic.Tool = {
       "budget",
       "pace",
       "interests",
+      "mustInclude",
       "readyToGenerate",
       "chips",
     ],

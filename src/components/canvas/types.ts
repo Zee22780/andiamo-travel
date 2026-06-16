@@ -15,6 +15,7 @@ export type CanvasStop = {
   lng: number | null;
   costEstimate: number | null;
   mustDo: boolean;
+  source: "ai" | "user"; // "user" = a traveler must-include / their own edit
 };
 
 export type CanvasDay = {
