@@ -129,6 +129,7 @@ export function DayColumn({
                 ) : (
                   <SortableStop
                     stop={stop}
+                    index={i + 1}
                     onEdit={() => setEditingId(stop.id)}
                     onDelete={() => onDeleteStop(stop.id)}
                     onVerify={() => onVerifyStop(stop.id)}

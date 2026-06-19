@@ -103,8 +103,13 @@ export function MapPane({
         // non-fatal; fit falls back to stop points
       }
       // Verified stops carry stored coordinates; only geocode the rest.
+      // Transit stops are movements, not destinations — they have no single
+      // correct point (the place that matters is the next stop), so we neither
+      // geocode nor pin them.
       const coords = await geocodeStops(
-        stops.filter((s) => s.lat == null || s.lng == null),
+        stops.filter(
+          (s) => s.type !== "transit" && (s.lat == null || s.lng == null),
+        ),
         near,
       );
       if (cancelled || !map.current) return;
@@ -123,12 +128,20 @@ export function MapPane({
 
       const points: [number, number][] = [];
       stops.forEach((stop, i) => {
+        // Transit/movement stops get no pin — see the geocode filter above.
+        if (stop.type === "transit") return;
         const c = coordFor(stop);
         if (!c || !nearAnchor(c)) return;
         points.push(c);
+        // Stops with stored coordinates (verified or user-placed) are exact;
+        // anything we had to title-geocode is only approximate, so render it as
+        // an outlined pin to set the right expectation. The number always
+        // mirrors the stop's position on the day (and its card badge).
+        const approximate = stop.lat == null || stop.lng == null;
         const el = document.createElement("div");
-        el.className =
-          "flex h-7 w-7 items-center justify-center rounded-full bg-[#0E7C6B] text-xs font-bold text-white shadow-md ring-2 ring-white";
+        el.className = approximate
+          ? "flex h-7 w-7 items-center justify-center rounded-full border-2 border-dashed border-[#0E7C6B] bg-white text-xs font-bold text-[#0E7C6B] shadow-md ring-1 ring-white"
+          : "flex h-7 w-7 items-center justify-center rounded-full bg-[#0E7C6B] text-xs font-bold text-white shadow-md ring-2 ring-white";
         el.textContent = String(i + 1);
         markers.current.push(
           new maplibregl.Marker({ element: el })

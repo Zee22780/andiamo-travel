@@ -7,12 +7,14 @@ import { CanvasStop } from "./types";
 
 export function SortableStop({
   stop,
+  index,
   onEdit,
   onDelete,
   onVerify,
   verifying,
 }: {
   stop: CanvasStop;
+  index?: number;
   onEdit?: () => void;
   onDelete?: () => void;
   onVerify?: () => void;
@@ -31,6 +33,7 @@ export function SortableStop({
     >
       <StopCard
         stop={stop}
+        index={index}
         onEdit={onEdit}
         onDelete={onDelete}
         onVerify={onVerify}
