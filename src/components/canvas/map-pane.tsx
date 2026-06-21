@@ -52,6 +52,25 @@ const geocodeStops = (stops: CanvasStop[], near: string) =>
     near,
   );
 
+// Stop titles often lead with an activity/meal descriptor before the real
+// place ("Lunch at All'Antico Vinaio", "Sunset at Piazzale Michelangelo",
+// "Check in near Santa Croce"). The geocoder chokes on that and returns a
+// far-off fallback the anchor filter drops, so the pin disappears. Cutting the
+// short leading phrase up to its location connector ("at/on/in/near/…") leaves
+// the real name, which resolves cleanly. The 40-char cap keeps the connector
+// near the start so we don't slice a name mid-string. Applied only on retry and
+// gated by the anchor check, so an over-strip just yields no pin (as before),
+// never a wrong one. (Verified stops skip geocoding entirely.)
+const PLACE_PREFIX =
+  /^.{0,40}?\b(?:at|on|in|near|by|overlooking|along|around)\b\s+/i;
+
+function cleanPlaceQuery(title: string): string {
+  return title
+    .replace(/\([^)]*\)/g, "")
+    .replace(PLACE_PREFIX, "")
+    .trim();
+}
+
 const TRANSIT_MODE = /^(shinkansen|train|bus|flight|drive|subway|ferry|taxi|walk)\s+/i;
 
 // A transit stop is a journey, not a place. Most sit between two pinned stops —
@@ -136,13 +155,34 @@ export function MapPane({
       } catch {
         // non-fatal; fit falls back to stop points
       }
+      const nearAnchor = (c: [number, number]) =>
+        !anchor ||
+        (Math.abs(c[0] - anchor[0]) < 1.5 && Math.abs(c[1] - anchor[1]) < 1.5);
+
       // Verified stops carry stored coordinates; only geocode the rest.
-      const coords = await geocodeStops(
-        stops.filter(
-          (s) => s.type !== "transit" && (s.lat == null || s.lng == null),
-        ),
-        near,
+      const placeStops = stops.filter(
+        (s) => s.type !== "transit" && (s.lat == null || s.lng == null),
       );
+      const coords = await geocodeStops(placeStops, near);
+      // A title that resolved nowhere, or to a point the anchor rejects, is
+      // usually descriptive ("Lunch at …"); retry it with the prefix stripped
+      // and keep the cleaned result only if it lands near the destination.
+      const retry = placeStops
+        .map((s) => ({ s, q: cleanPlaceQuery(s.title) }))
+        .filter(({ s, q }) => {
+          const c = coords.get(s.id);
+          return (!c || !nearAnchor(c)) && q !== "" && q !== s.title;
+        });
+      if (retry.length) {
+        const fixed = await geocodeByQuery(
+          retry.map(({ s, q }) => ({ id: s.id, query: q })),
+          near,
+        );
+        for (const { s } of retry) {
+          const c = fixed.get(s.id);
+          if (c && nearAnchor(c)) coords.set(s.id, c);
+        }
+      }
       // Boundary transfers (airport arrival/departure) introduce one endpoint
       // the map wouldn't otherwise show; geocode just that endpoint.
       const boundaryByStop = new Map<
@@ -165,10 +205,6 @@ export function MapPane({
         stop.lat != null && stop.lng != null
           ? [stop.lng, stop.lat]
           : coords.get(stop.id);
-
-      const nearAnchor = (c: [number, number]) =>
-        !anchor ||
-        (Math.abs(c[0] - anchor[0]) < 1.5 && Math.abs(c[1] - anchor[1]) < 1.5);
 
       markers.current.forEach((mk) => mk.remove());
       markers.current = [];
