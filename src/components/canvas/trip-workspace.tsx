@@ -244,7 +244,7 @@ export function TripWorkspace({
             {/* Map: always-on side panel on desktop. On mobile it lives in a
                 bottom sheet (below) so it doesn't steal canvas height. */}
             {isDesktop && (
-              <div className="relative hidden shrink-0 lg:block lg:w-[40%]">
+              <div className="relative hidden shrink-0 overflow-hidden lg:block lg:w-[40%] before:pointer-events-none before:absolute before:inset-y-0 before:left-0 before:z-10 before:w-2 before:bg-gradient-to-r before:from-black/10 before:to-transparent">
                 {mapKey ? (
                   <MapPane
                     mapKey={mapKey}
