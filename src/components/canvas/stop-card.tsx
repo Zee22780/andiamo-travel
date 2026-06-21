@@ -58,7 +58,8 @@ export function StopCard({
   verifying,
 }: {
   stop: CanvasStop;
-  /** 1-based position in the day — mirrors the numbered pin on the map. */
+  /** 1-based position among *places* in the day — mirrors the numbered map
+   * pin. Undefined for transit stops (journeys aren't numbered). */
   index?: number;
   dragging?: boolean;
   onEdit?: () => void;
@@ -123,19 +124,7 @@ export function StopCard({
           {index != null && (
             <span
               aria-hidden
-              title={
-                stop.type === "transit"
-                  ? "Travel leg — not shown on the map"
-                  : undefined
-              }
-              className={cn(
-                "absolute -left-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold ring-2 ring-white",
-                // Transit stops aren't pinned on the map — mute the badge so the
-                // gap in map numbers reads as intentional, not missing.
-                stop.type === "transit"
-                  ? "bg-surface-variant text-on-surface-variant/70"
-                  : "bg-primary text-white",
-              )}
+              className="absolute -left-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-white ring-2 ring-white"
             >
               {index}
             </span>

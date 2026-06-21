@@ -3,21 +3,22 @@
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { useEffect, useRef } from "react";
+import { placeNumbers } from "./numbering";
 import { CanvasStop } from "./types";
 
 // Geocode cache shared across focus changes within a session.
 const coordCache = new Map<string, [number, number]>();
 
-async function geocodeStops(
-  stops: CanvasStop[],
+async function geocodeByQuery(
+  items: { id: string; query: string }[],
   near: string,
 ): Promise<Map<string, [number, number]>> {
   const out = new Map<string, [number, number]>();
   const missing: { id: string; query: string }[] = [];
-  for (const s of stops) {
-    const key = `${s.title} @ ${near}`;
-    if (coordCache.has(key)) out.set(s.id, coordCache.get(key)!);
-    else missing.push({ id: s.id, query: s.title });
+  for (const it of items) {
+    const key = `${it.query} @ ${near}`;
+    if (coordCache.has(key)) out.set(it.id, coordCache.get(key)!);
+    else missing.push(it);
   }
   if (missing.length) {
     try {
@@ -43,6 +44,39 @@ async function geocodeStops(
     }
   }
   return out;
+}
+
+const geocodeStops = (stops: CanvasStop[], near: string) =>
+  geocodeByQuery(
+    stops.map((s) => ({ id: s.id, query: s.title })),
+    near,
+  );
+
+const TRANSIT_MODE = /^(shinkansen|train|bus|flight|drive|subway|ferry|taxi|walk)\s+/i;
+
+// A transit stop is a journey, not a place. Most sit between two pinned stops —
+// the line between those pins already shows the trip, so they need nothing. But
+// a *boundary* transfer enters or leaves the mapped area (an airport arrival,
+// a departure): one endpoint is otherwise invisible. We surface that endpoint
+// as a start/end marker so the journey has somewhere to begin or end.
+function boundaryEndpoint(
+  stops: CanvasStop[],
+  i: number,
+): { kind: "leading" | "trailing"; query: string } | null {
+  const stop = stops[i];
+  if (stop.type !== "transit") return null;
+  const before = stops.slice(0, i).some((s) => s.type !== "transit");
+  const after = stops.slice(i + 1).some((s) => s.type !== "transit");
+  if (before && after) return null; // interstitial — line already shows it
+  // Leading transfers introduce their origin (where you came from); trailing
+  // ones introduce their destination (where you're headed).
+  const kind = before ? "trailing" : "leading";
+  const parts = stop.title.split(/\s+to\s+/i);
+  const seg = (kind === "leading" ? parts[0] : parts[parts.length - 1])
+    .replace(/\([^)]*\)/g, "")
+    .replace(TRANSIT_MODE, "")
+    .trim();
+  return seg ? { kind, query: seg } : null;
 }
 
 export function MapPane({
@@ -103,15 +137,28 @@ export function MapPane({
         // non-fatal; fit falls back to stop points
       }
       // Verified stops carry stored coordinates; only geocode the rest.
-      // Transit stops are movements, not destinations — they have no single
-      // correct point (the place that matters is the next stop), so we neither
-      // geocode nor pin them.
       const coords = await geocodeStops(
         stops.filter(
           (s) => s.type !== "transit" && (s.lat == null || s.lng == null),
         ),
         near,
       );
+      // Boundary transfers (airport arrival/departure) introduce one endpoint
+      // the map wouldn't otherwise show; geocode just that endpoint.
+      const boundaryByStop = new Map<
+        string,
+        { kind: "leading" | "trailing"; query: string }
+      >();
+      stops.forEach((s, i) => {
+        const b = boundaryEndpoint(stops, i);
+        if (b) boundaryByStop.set(s.id, b);
+      });
+      const boundaryCoords = boundaryByStop.size
+        ? await geocodeByQuery(
+            [...boundaryByStop].map(([id, b]) => ({ id, query: b.query })),
+            near,
+          )
+        : new Map<string, [number, number]>();
       if (cancelled || !map.current) return;
 
       const coordFor = (stop: CanvasStop): [number, number] | undefined =>
@@ -126,23 +173,39 @@ export function MapPane({
       markers.current.forEach((mk) => mk.remove());
       markers.current = [];
 
+      const nums = placeNumbers(stops);
       const points: [number, number][] = [];
-      stops.forEach((stop, i) => {
-        // Transit/movement stops get no pin — see the geocode filter above.
-        if (stop.type === "transit") return;
+      stops.forEach((stop) => {
+        // Transit is a journey, not a place. Interstitial hops show as the line
+        // between their pinned neighbors; only boundary transfers get a marker.
+        if (stop.type === "transit") {
+          if (!boundaryByStop.has(stop.id)) return;
+          const c = boundaryCoords.get(stop.id);
+          if (!c || !nearAnchor(c)) return;
+          points.push(c); // in stop order, so the line runs through the airport
+          const el = document.createElement("div");
+          el.className =
+            "flex h-6 w-6 items-center justify-center rounded-full border-2 border-[#0E7C6B] bg-white text-sm shadow-md ring-1 ring-white";
+          el.textContent = /airport/i.test(stop.title) ? "✈" : "🚆";
+          markers.current.push(
+            new maplibregl.Marker({ element: el })
+              .setLngLat(c)
+              .setPopup(
+                new maplibregl.Popup({ offset: 16 }).setText(stop.title),
+              )
+              .addTo(m),
+          );
+          return;
+        }
         const c = coordFor(stop);
         if (!c || !nearAnchor(c)) return;
         points.push(c);
-        // Stops with stored coordinates (verified or user-placed) are exact;
-        // anything we had to title-geocode is only approximate, so render it as
-        // an outlined pin to set the right expectation. The number always
-        // mirrors the stop's position on the day (and its card badge).
-        const approximate = stop.lat == null || stop.lng == null;
+        // One pin style for every place; the card's verification badge already
+        // conveys confidence. The number mirrors the card badge (places only).
         const el = document.createElement("div");
-        el.className = approximate
-          ? "flex h-7 w-7 items-center justify-center rounded-full border-2 border-dashed border-[#0E7C6B] bg-white text-xs font-bold text-[#0E7C6B] shadow-md ring-1 ring-white"
-          : "flex h-7 w-7 items-center justify-center rounded-full bg-[#0E7C6B] text-xs font-bold text-white shadow-md ring-2 ring-white";
-        el.textContent = String(i + 1);
+        el.className =
+          "flex h-7 w-7 items-center justify-center rounded-full bg-[#0E7C6B] text-xs font-bold text-white shadow-md ring-2 ring-white";
+        el.textContent = String(nums.get(stop.id));
         markers.current.push(
           new maplibregl.Marker({ element: el })
             .setLngLat(c)

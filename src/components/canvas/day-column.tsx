@@ -7,6 +7,7 @@ import {
 } from "@dnd-kit/sortable";
 import { Fragment, useState } from "react";
 import { cn } from "@/lib/utils";
+import { placeNumbers } from "./numbering";
 import { dayPacing, type Pace } from "./pacing";
 import { SortableStop } from "./sortable-stop";
 import { StopDraft, StopEditor } from "./stop-editor";
@@ -62,6 +63,8 @@ export function DayColumn({
   const [adding, setAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const { overpacked, activeMin, stopCount } = dayPacing(stops, pace);
+  // Numbers track *places*, not transit; shared with the map so they match.
+  const nums = placeNumbers(stops);
 
   return (
     <div className="flex w-full shrink-0 flex-col gap-3 lg:w-[320px]">
@@ -129,7 +132,7 @@ export function DayColumn({
                 ) : (
                   <SortableStop
                     stop={stop}
-                    index={i + 1}
+                    index={nums.get(stop.id)}
                     onEdit={() => setEditingId(stop.id)}
                     onDelete={() => onDeleteStop(stop.id)}
                     onVerify={() => onVerifyStop(stop.id)}
