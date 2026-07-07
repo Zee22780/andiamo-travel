@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { placeLookup } from "@/lib/places";
 import { db } from "./client";
+import { promoteStopToLibrary } from "./poi-library";
 import { days, legs, stops, trips } from "./schema";
 
 // Trust layer (Google Places tier): resolve each AI-suggested place via the
@@ -64,6 +65,13 @@ async function verifyStopRow(
     .update(stops)
     .set({ verification: status, verifiedAt: new Date(), placeId, lat, lng })
     .where(eq(stops.id, stop.id));
+
+  // A confident, operating match is library material: future generations for
+  // this destination can schedule it by reference (pre-verified). Gating on
+  // source/type happens inside; never throws.
+  if (status === "verified") {
+    await promoteStopToLibrary(stop, destination, { placeId, lat, lng });
+  }
 
   return status;
 }

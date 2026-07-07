@@ -9,6 +9,7 @@ import {
   text,
   time,
   timestamp,
+  uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
 
@@ -125,6 +126,34 @@ export const chatMessages = pgTable("chat_messages", {
 // business_status) with a TTL so the verify pass and the verify_place copilot
 // tool don't re-bill Places for the same lookup. Volatile data (open-now) is
 // fetched live, never cached. See notes/tech-brief.md §4.
+// Destination place library for reference-based generation. Rows are promoted
+// from Places-verified AI stops (see db/verify.ts); generation injects a
+// compact per-destination catalog and the model schedules these by slug
+// instead of writing each stop out, so library stops arrive pre-verified.
+export const poiLibrary = pgTable(
+  "poi_library",
+  {
+    slug: text("slug").primaryKey(), // prompt-facing id: "<city>/<title>"
+    destination: text("destination").notNull(), // normalized leg destination
+    type: stopType("type").notNull(), // activity | meal only
+    title: text("title").notNull(),
+    description: text("description"),
+    typicalDurationMin: integer("typical_duration_min"),
+    costEstimate: integer("cost_estimate"),
+    placeId: text("place_id").notNull(),
+    lat: doublePrecision("lat").notNull(),
+    lng: doublePrecision("lng").notNull(),
+    timesUsed: integer("times_used").notNull().default(0),
+    lastVerifiedAt: timestamp("last_verified_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("poi_library_destination_place_id").on(t.destination, t.placeId),
+  ],
+);
+
 export const placesCache = pgTable("places_cache", {
   query: text("query").primaryKey(),
   found: boolean("found").notNull(),

@@ -3,7 +3,7 @@ import { z } from "zod";
 // Generation target for /api/trips/:id/generate. Mirrors src/db/schema.ts —
 // legs → days → stops — so parsed output inserts without reshaping.
 
-export const StopSchema = z.object({
+export const InlineStopSchema = z.object({
   type: z.enum(["activity", "meal", "lodging", "transit"]),
   title: z.string(),
   description: z.string().nullable(),
@@ -25,6 +25,37 @@ export const StopSchema = z.object({
       "True if this stop came from a traveler-specified must-include (their own place, ritual, or fixed commitment), not the AI's own picks",
     ),
 });
+
+// Compact reference to a "Known places" catalog entry injected into the
+// generation prompt. The app expands it from poi_library after parsing —
+// title/description/type/cost/coords come from the library row.
+export const RefStopSchema = z.object({
+  poi: z
+    .string()
+    .describe("Exact slug of a Known places catalog entry, e.g. porto/livraria-lello"),
+  startTime: z
+    .string()
+    .regex(/^([01]\d|2[0-3]):[0-5]\d$/)
+    .describe("24h HH:MM local time"),
+  durationMin: z
+    .number()
+    .int()
+    .positive()
+    .nullable()
+    .describe("Minutes to spend here; null = the catalog's typical duration"),
+  mustDo: z.boolean(),
+  userAdded: z
+    .boolean()
+    .describe(
+      "True if this stop came from a traveler-specified must-include (their own place, ritual, or fixed commitment), not the AI's own picks",
+    ),
+});
+
+export const StopSchema = z.union([RefStopSchema, InlineStopSchema]);
+
+export type InlineStop = z.infer<typeof InlineStopSchema>;
+export type RefStop = z.infer<typeof RefStopSchema>;
+export const isRefStop = (s: InlineStop | RefStop): s is RefStop => "poi" in s;
 
 export const DaySchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),

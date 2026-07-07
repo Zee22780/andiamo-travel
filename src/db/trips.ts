@@ -1,7 +1,8 @@
 import { and, asc, desc, eq, gte, sql } from "drizzle-orm";
 import type { CanvasTrip } from "@/components/canvas/types";
-import type { Itinerary, TripSummary } from "@/lib/ai/schemas";
+import type { TripSummary } from "@/lib/ai/schemas";
 import { db, DEMO_PROFILE_ID, ensureDemoProfile } from "./client";
+import type { ResolvedItinerary } from "./poi-library";
 import { days, legs, stops, tripMembers, trips } from "./schema";
 
 export type TripPhase = "upcoming" | "active" | "past" | "planning";
@@ -64,8 +65,10 @@ export async function loadTrips(): Promise<TripCard[]> {
   );
 }
 
+// Takes the reference-resolved itinerary (see db/poi-library.ts): library
+// stops carry place_id/coords/verification and persist as already-verified.
 export async function saveItinerary(
-  itinerary: Itinerary,
+  itinerary: ResolvedItinerary,
   preferences: Partial<TripSummary>,
 ): Promise<string> {
   await ensureDemoProfile();
@@ -118,6 +121,14 @@ export async function saveItinerary(
               costEstimate: stop.costEstimate,
               mustDo: stop.mustDo,
               source: (stop.userAdded ? "user" : "ai") as "user" | "ai",
+              // Library-referenced stops arrive pre-verified.
+              placeId: stop.placeId ?? null,
+              lat: stop.lat ?? null,
+              lng: stop.lng ?? null,
+              verification: (stop.verification ?? "unverified") as
+                | "verified"
+                | "unverified",
+              verifiedAt: stop.verifiedAt ?? null,
             })),
           );
         }

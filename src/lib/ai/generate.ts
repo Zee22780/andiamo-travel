@@ -21,6 +21,7 @@ Planning rules:
 - Add a rest day or light day roughly every 6-7 days on trips over 10 days.
 - lodging on each leg = a neighborhood recommendation, not a specific hotel.
 - Titles are specific real places ("Nishiki Market"), not categories ("local market"). You may be uncertain about hours — that's handled downstream by verification; still avoid suggesting places you believe are permanently closed.
+- The request may include a "Known places" catalog of real, pre-verified places for the destinations. When a place you would schedule is in the catalog, emit the compact reference form — {"poi": "<slug>", "startTime": …, "durationMin": …, "mustDo": …, "userAdded": …} — instead of writing the stop out; its title, description, and details are filled in from the catalog. Use only slugs that appear in the catalog, exactly as written; never invent or modify a slug. Everything not in the catalog (niche picks, unlisted venues, transit, lodging, classes/experiences) stays a full written stop. A mustInclude item may use either form but always carries userAdded=true.
 - notes on each day: a short theme ("Old-town wandering + onsen evening").`,
     cache_control: { type: "ephemeral" },
   },

@@ -133,6 +133,10 @@ export function IntakeChat() {
           if (!event || !data) continue;
           if (event === "progress") {
             setDraftProgress((JSON.parse(data) as { chars: number }).chars);
+          } else if (event === "partial") {
+            // Progressive rendering: switch to the preview as soon as the
+            // first complete stops exist and let the days fill in live.
+            setItinerary(JSON.parse(data) as PreviewItinerary);
           } else if (event === "itinerary") {
             setItinerary(JSON.parse(data) as PreviewItinerary);
           } else if (event === "trip") {
@@ -167,7 +171,7 @@ export function IntakeChat() {
           <span className="text-sm font-medium text-on-surface-variant">
             {tripId
               ? "Opening your editable itinerary…"
-              : "Finishing up your itinerary…"}
+              : "Drafting your itinerary — stops appear as they're planned…"}
           </span>
           {tripId && (
             <a
@@ -178,7 +182,7 @@ export function IntakeChat() {
             </a>
           )}
         </div>
-        <ItineraryPreview itinerary={itinerary} />
+        <ItineraryPreview itinerary={itinerary} inProgress={!tripId} />
       </div>
     );
   }

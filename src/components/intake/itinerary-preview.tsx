@@ -22,6 +22,8 @@ export type PreviewItinerary = {
         durationMin: number;
         costEstimate: number | null;
         mustDo: boolean;
+        // Library-referenced stops stream in already verified.
+        verification?: string;
       }[];
     }[];
   }[];
@@ -36,8 +38,10 @@ const TYPE_ICONS: Record<string, string> = {
 
 export function ItineraryPreview({
   itinerary,
+  inProgress = false,
 }: {
   itinerary: PreviewItinerary;
+  inProgress?: boolean;
 }) {
   return (
     <div className="flex-1 overflow-y-auto p-8">
@@ -55,7 +59,7 @@ export function ItineraryPreview({
             ))}
           </div>
           <p className="text-xs text-on-surface-variant/60">
-            Every stop is an AI draft — verification badges arrive with the
+            Known places arrive already verified — the rest get checked by the
             trust layer.
           </p>
         </header>
@@ -100,12 +104,21 @@ export function ItineraryPreview({
                               must-do
                             </Badge>
                           )}
-                          <Badge
-                            variant="secondary"
-                            className="rounded-full bg-amber-50 text-amber-700"
-                          >
-                            AI guess
-                          </Badge>
+                          {stop.verification === "verified" ? (
+                            <Badge
+                              variant="secondary"
+                              className="rounded-full bg-primary/10 text-primary"
+                            >
+                              ✓ Verified
+                            </Badge>
+                          ) : (
+                            <Badge
+                              variant="secondary"
+                              className="rounded-full bg-amber-50 text-amber-700"
+                            >
+                              AI guess
+                            </Badge>
+                          )}
                         </div>
                         {stop.description && (
                           <p className="mt-0.5 text-xs leading-relaxed text-on-surface-variant">
@@ -126,6 +139,12 @@ export function ItineraryPreview({
             ))}
           </section>
         ))}
+
+        {inProgress && (
+          <div className="animate-pulse rounded-xl border border-dashed border-surface-variant bg-white/60 p-4 text-sm text-on-surface-variant">
+            Planning the next stops…
+          </div>
+        )}
       </div>
     </div>
   );

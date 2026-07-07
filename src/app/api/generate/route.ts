@@ -3,6 +3,13 @@ import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { NextRequest } from "next/server";
 import { GENERATE_SYSTEM } from "@/lib/ai/generate";
 import { ItinerarySchema, TripSummary } from "@/lib/ai/schemas";
+import {
+  catalogPromptBlock,
+  loadCatalog,
+  recordCatalogUse,
+  resolveItinerary,
+} from "@/db/poi-library";
+import { countStops, parsePartialItinerary } from "@/lib/ai/partial-itinerary";
 import { saveItinerary } from "@/db/trips";
 import { seedChatMessages } from "@/db/chat";
 
@@ -57,6 +64,16 @@ export async function POST(req: NextRequest) {
           encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`),
         );
       try {
+        // Known-places catalog for the trip's destinations: the model can
+        // schedule these by slug (cheap reference) instead of writing each
+        // stop out; empty catalog = no block, exactly the old behavior.
+        const s = summary as Partial<TripSummary>;
+        const catalog = await loadCatalog([
+          ...(s.route ?? []),
+          ...(s.destination ? [s.destination] : []),
+        ]);
+        const catalogBlock = catalogPromptBlock(catalog);
+
         const aiStream = client.messages.stream({
           model: "claude-opus-4-8",
           max_tokens: 64000,
@@ -66,18 +83,35 @@ export async function POST(req: NextRequest) {
           messages: [
             {
               role: "user",
-              content: `Traveler profile:\n${JSON.stringify(summary, null, 2)}\n\nDraft the full itinerary.`,
+              content: `Traveler profile:\n${JSON.stringify(summary, null, 2)}\n\n${
+                catalogBlock ? `${catalogBlock}\n\n` : ""
+              }Draft the full itinerary.`,
             },
           ],
         });
 
         let chars = 0;
         let lastBeat = 0;
+        let accumulated = "";
+        let lastPartialStops = 0;
         aiStream.on("text", (delta) => {
           chars += delta.length;
+          accumulated += delta;
           if (chars - lastBeat > 2000) {
             lastBeat = chars;
             send("progress", { chars });
+            // Progressive rendering: parse whatever has streamed so far and,
+            // when new complete stops exist, ship a reference-resolved
+            // partial for the client to render live. Best-effort — a failed
+            // parse just means no partial this beat.
+            const partial = parsePartialItinerary(accumulated);
+            if (partial) {
+              const stops = countStops(partial);
+              if (stops > lastPartialStops) {
+                lastPartialStops = stops;
+                send("partial", resolveItinerary(partial, catalog).itinerary);
+              }
+            }
           }
         });
 
@@ -87,12 +121,24 @@ export async function POST(req: NextRequest) {
         }
         const text =
           final.content.find((b) => b.type === "text")?.text ?? "";
-        const itinerary = ItinerarySchema.parse(JSON.parse(text));
+        const parsed = ItinerarySchema.parse(JSON.parse(text));
+        // Expand catalog references into full, pre-verified stops before
+        // anything downstream (preview + persistence) sees the itinerary.
+        const { itinerary, usedSlugs, unknownSlugs } = resolveItinerary(
+          parsed,
+          catalog,
+        );
+        console.log(
+          `[generate] catalog=${catalog.length} refs=${usedSlugs.length}` +
+            (unknownSlugs.length ? ` unknown=${unknownSlugs.join(",")}` : "") +
+            ` output_tokens=${final.usage.output_tokens}`,
+        );
         send("itinerary", itinerary);
         const tripId = await saveItinerary(
           itinerary,
           summary as Partial<TripSummary>,
         );
+        await recordCatalogUse(usedSlugs);
         // Persist the intake interview as the trip's opening conversation so
         // the traveler can return to it from the canvas copilot.
         if (transcript.length) await seedChatMessages(tripId, transcript);
