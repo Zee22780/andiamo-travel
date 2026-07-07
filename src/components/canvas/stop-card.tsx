@@ -60,6 +60,7 @@ export function StopCard({
   dragging,
   onEdit,
   onDelete,
+  onReplace,
   checking,
 }: {
   stop: CanvasStop;
@@ -69,6 +70,9 @@ export function StopCard({
   dragging?: boolean;
   onEdit?: () => void;
   onDelete?: () => void;
+  /** One-tap fix for a flagged place: hands the copilot a scoped
+   * swap-this-closed-place prompt. Only rendered when flagged. */
+  onReplace?: () => void;
   /** True while the automatic verification sweep is in flight. */
   checking?: boolean;
 }) {
@@ -152,6 +156,15 @@ export function StopCard({
               isPlace={stop.type === "activity" || stop.type === "meal"}
               checking={checking}
             />
+            {stop.verification === "flagged" && onReplace && (
+              <button
+                onPointerDown={stop_}
+                onClick={onReplace}
+                className="rounded-full bg-red-600 px-2 py-0.5 text-[10px] font-bold text-white transition-opacity hover:opacity-90 active:scale-95"
+              >
+                Replace
+              </button>
+            )}
           </div>
         </div>
       </div>

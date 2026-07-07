@@ -10,12 +10,14 @@ export function SortableStop({
   index,
   onEdit,
   onDelete,
+  onReplace,
   checking,
 }: {
   stop: CanvasStop;
   index?: number;
   onEdit?: () => void;
   onDelete?: () => void;
+  onReplace?: () => void;
   checking?: boolean;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
@@ -34,6 +36,7 @@ export function SortableStop({
         index={index}
         onEdit={onEdit}
         onDelete={onDelete}
+        onReplace={onReplace}
         checking={checking}
       />
     </div>

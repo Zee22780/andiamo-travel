@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/db/client";
 import { stops } from "@/db/schema";
+import { verifyStopById } from "@/db/verify";
 
 const UpdateSchema = z
   .object({
@@ -19,8 +20,10 @@ const UpdateSchema = z
   })
   .partial();
 
-// PATCH /api/stops/:id — edit one stop. A user edit clears any prior AI
-// verification claim back to user-authored/verified.
+// PATCH /api/stops/:id — edit one stop, attributed to the traveler. A retitle
+// means it's a different place: the old resolution is dropped and the stop is
+// re-verified inline so the response carries the new place's status/coords;
+// other edits leave the resolution — including a flag — untouched.
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -31,14 +34,38 @@ export async function PATCH(
     return NextResponse.json({ error: "invalid body" }, { status: 400 });
   }
 
+  const retitled = parsed.data.title !== undefined;
   const [updated] = await db
     .update(stops)
-    .set({ ...parsed.data, source: "user", verification: "verified" })
+    .set({
+      ...parsed.data,
+      source: "user",
+      ...(retitled
+        ? {
+            verification: "unverified" as const,
+            placeId: null,
+            lat: null,
+            lng: null,
+            verifiedAt: null,
+          }
+        : {}),
+    })
     .where(eq(stops.id, id))
     .returning();
 
   if (!updated) {
     return NextResponse.json({ error: "not found" }, { status: 404 });
+  }
+  if (retitled && (updated.type === "activity" || updated.type === "meal")) {
+    try {
+      await verifyStopById(id);
+      const fresh = await db.query.stops.findFirst({
+        where: eq(stops.id, id),
+      });
+      return NextResponse.json({ stop: fresh ?? updated });
+    } catch {
+      // Best-effort: an unresolved retitle just stays unresolved.
+    }
   }
   return NextResponse.json({ stop: updated });
 }

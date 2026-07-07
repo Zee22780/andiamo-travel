@@ -161,6 +161,27 @@ export function useCanvasDnd(initial: DayStops) {
           body: JSON.stringify(patch),
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        // A retitle is re-verified server-side — fold the fresh resolution
+        // (status/place/coords) into the optimistic row so the badge, photo
+        // and pin track the new place without a reload.
+        const { stop: fresh } = (await res.json()) as { stop: CanvasStop };
+        setDayStops((prev) => {
+          const next: DayStops = {};
+          for (const [dayId, list] of Object.entries(prev)) {
+            next[dayId] = list.map((s) =>
+              s.id === stopId
+                ? {
+                    ...s,
+                    verification: fresh.verification,
+                    placeId: fresh.placeId,
+                    lat: fresh.lat,
+                    lng: fresh.lng,
+                  }
+                : s,
+            );
+          }
+          return next;
+        });
       } catch {
         setDayStops(before);
       }

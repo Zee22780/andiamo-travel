@@ -153,12 +153,17 @@ export type StopOperation =
   | { type: "move"; stopId: string; dayId?: string; sortOrder?: number }
   | { type: "delete"; stopId: string };
 
-// Applies copilot update_stops operations. User-directed edits mark the stop
-// source=user/verified (no outstanding AI claim).
+// Applies copilot update_stops operations. User-directed edits attribute the
+// stop to the traveler (source=user). A retitle means it's a different place:
+// the old resolution (place id/coords/status) is dropped and the stop is
+// re-verified after the transaction, so its pin/photo/flag track the new
+// title; time/duration/type tweaks leave the resolution — including a flag —
+// untouched.
 export async function applyStopOperations(
   ops: StopOperation[],
 ): Promise<{ applied: number }> {
   let applied = 0;
+  const retitled: string[] = [];
   await db.transaction(async (tx) => {
     for (const op of ops) {
       if (op.type === "delete") {
@@ -173,11 +178,16 @@ export async function applyStopOperations(
           applied++;
         }
       } else {
-        const set: Record<string, unknown> = {
-          source: "user",
-          verification: "verified",
-        };
-        if (op.title != null) set.title = op.title;
+        const set: Record<string, unknown> = { source: "user" };
+        if (op.title != null) {
+          set.title = op.title;
+          set.verification = "unverified";
+          set.placeId = null;
+          set.lat = null;
+          set.lng = null;
+          set.verifiedAt = null;
+          retitled.push(op.stopId);
+        }
         if (op.startTime !== undefined)
           set.startTime = op.startTime === "" ? null : op.startTime;
         if (op.durationMin != null) set.durationMin = op.durationMin;
@@ -188,6 +198,18 @@ export async function applyStopOperations(
       }
     }
   });
+  for (const stopId of retitled) {
+    try {
+      const row = await db.query.stops.findFirst({
+        where: eq(stops.id, stopId),
+      });
+      if (row && (row.type === "activity" || row.type === "meal")) {
+        await verifyStopById(stopId);
+      }
+    } catch {
+      // Best-effort: an unresolved retitle just stays unresolved.
+    }
+  }
   return { applied };
 }
 

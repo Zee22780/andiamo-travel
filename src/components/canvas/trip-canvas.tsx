@@ -129,6 +129,19 @@ export function TripCanvas({
     );
   };
 
+  // One-tap fix for a flagged (appears-closed) place: a scoped swap request
+  // the copilot can act on surgically.
+  const askReplaceStop = (
+    leg: CanvasLeg,
+    day: CanvasDay,
+    dayNumber: number,
+    stop: CanvasStop,
+  ) => {
+    onAskCopilot(
+      `"${stop.title}" on Day ${dayNumber} (${leg.destination}, ${formatDay(day.date)}) appears to be permanently closed. Replace it with a comparable nearby alternative that is open — a similar kind of experience at the same time slot and a similar budget. Keep the rest of the day unchanged.`,
+    );
+  };
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       {/* Leg bar */}
@@ -250,6 +263,7 @@ export function TripCanvas({
               onAddStop={addStop}
               onUpdateStop={updateStop}
               onDeleteStop={deleteStop}
+              onReplaceStop={(stop) => askReplaceStop(leg, day, dayNumber, stop)}
               checking={checking}
               onFixDay={() =>
                 askFixDay(leg, day, dayNumber, dayStops[day.id] ?? [])
