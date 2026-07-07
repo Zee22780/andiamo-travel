@@ -202,7 +202,6 @@ export async function addStop(input: {
   durationMin?: number | null;
   mustDo?: boolean;
   source?: "ai" | "user";
-  verification?: "unverified" | "verified" | "flagged";
 }) {
   const { dayId, type, title } = input;
   const startTime = input.startTime ?? null;
@@ -242,7 +241,6 @@ export async function addStop(input: {
         sortOrder: insertAt,
         mustDo: input.mustDo ?? false,
         source: input.source ?? "ai",
-        ...(input.verification ? { verification: input.verification } : {}),
       })
       .returning();
     return inserted;

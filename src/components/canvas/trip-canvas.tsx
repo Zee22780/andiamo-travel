@@ -26,10 +26,7 @@ export function TripCanvas({
   focusedDayId,
   onFocusDay,
   onAskCopilot,
-  onVerify,
-  verifying,
-  onVerifyStop,
-  verifyingStopId,
+  checking,
   travelLegs,
   isDesktop,
 }: {
@@ -40,10 +37,8 @@ export function TripCanvas({
   focusedDayId: string | null;
   onFocusDay: (id: string) => void;
   onAskCopilot: (prompt: string) => void;
-  onVerify: () => void;
-  verifying: boolean;
-  onVerifyStop: (stopId: string) => void;
-  verifyingStopId: string | null;
+  /** True while the automatic verification sweep is in flight. */
+  checking: boolean;
   travelLegs: TravelLegMap;
   isDesktop: boolean | null;
 }) {
@@ -170,14 +165,6 @@ export function TripCanvas({
             </button>
           </span>
         ))}
-        <button
-          onClick={onVerify}
-          disabled={verifying}
-          title="Check that AI-suggested places resolve to a real location"
-          className="ml-auto shrink-0 rounded-lg border border-primary/30 px-3 py-1.5 text-sm font-bold text-primary transition-all hover:bg-primary/5 disabled:opacity-60"
-        >
-          {verifying ? "Verifying…" : "✓ Verify places"}
-        </button>
       </div>
 
       {/* Day navigator (mobile only) — swap the single visible day. */}
@@ -263,8 +250,7 @@ export function TripCanvas({
               onAddStop={addStop}
               onUpdateStop={updateStop}
               onDeleteStop={deleteStop}
-              onVerifyStop={onVerifyStop}
-              verifyingStopId={verifyingStopId}
+              checking={checking}
               onFixDay={() =>
                 askFixDay(leg, day, dayNumber, dayStops[day.id] ?? [])
               }

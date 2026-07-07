@@ -104,19 +104,14 @@ export function ItineraryPreview({
                               must-do
                             </Badge>
                           )}
-                          {stop.verification === "verified" ? (
+                          {/* Stops without the badge aren't unchecked — the
+                              canvas auto-verifies them the moment it opens. */}
+                          {stop.verification === "verified" && (
                             <Badge
                               variant="secondary"
                               className="rounded-full bg-primary/10 text-primary"
                             >
                               ✓ Verified
-                            </Badge>
-                          ) : (
-                            <Badge
-                              variant="secondary"
-                              className="rounded-full bg-amber-50 text-amber-700"
-                            >
-                              AI guess
                             </Badge>
                           )}
                         </div>

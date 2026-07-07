@@ -38,8 +38,7 @@ export function DayColumn({
   onAddStop,
   onUpdateStop,
   onDeleteStop,
-  onVerifyStop,
-  verifyingStopId,
+  checking,
   onFixDay,
   travelLegs,
 }: {
@@ -54,8 +53,7 @@ export function DayColumn({
   onAddStop: (dayId: string, fields: { title: string; type: CanvasStop["type"] }) => void;
   onUpdateStop: (stopId: string, patch: Partial<CanvasStop>) => void;
   onDeleteStop: (stopId: string) => void;
-  onVerifyStop: (stopId: string) => void;
-  verifyingStopId: string | null;
+  checking: boolean;
   onFixDay: () => void;
   travelLegs: TravelLegMap;
 }) {
@@ -135,8 +133,7 @@ export function DayColumn({
                     index={nums.get(stop.id)}
                     onEdit={() => setEditingId(stop.id)}
                     onDelete={() => onDeleteStop(stop.id)}
-                    onVerify={() => onVerifyStop(stop.id)}
-                    verifying={verifyingStopId === stop.id}
+                    checking={checking}
                   />
                 )}
                 {leg && <TravelChip leg={leg} />}

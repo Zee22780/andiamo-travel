@@ -18,6 +18,21 @@ function localTodayStr(): string {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
 
+// Any AI place stops the automatic sweep still needs to resolve? Flagged stops
+// don't count: a flag is a kept result, not a pending state.
+function hasUnresolvedPlaces(trip: CanvasTrip): boolean {
+  return trip.legs.some((l) =>
+    l.days.some((d) =>
+      d.stops.some(
+        (s) =>
+          s.source === "ai" &&
+          (s.type === "activity" || s.type === "meal") &&
+          s.verification === "unverified",
+      ),
+    ),
+  );
+}
+
 export function TripWorkspace({
   trip,
   mapKey,
@@ -51,12 +66,14 @@ export function TripWorkspace({
   const askCopilot = (text: string) =>
     setCopilotRequest((r) => ({ text, n: (r?.n ?? 0) + 1 }));
 
-  // Trust layer: verify AI place stops against Google Places, then resync so the
-  // Verified/Flagged badges and accurate pins appear without a reload.
-  const [verifying, setVerifying] = useState(false);
+  // Auto-verification: the sweep fires on mount whenever the trip still has
+  // unresolved AI places — a trip fresh from generation (intake lands here
+  // right away) or an older trip that never ran it. The sweep is idempotent
+  // server-side (verified stops are skipped), so firing on every qualifying
+  // mount is cheap. `checking` starts true when a sweep is due so cards never
+  // flash a "couldn't confirm" hint before it has actually run.
+  const [checking, setChecking] = useState(() => hasUnresolvedPlaces(trip));
   const verifyPlaces = async () => {
-    if (verifying) return;
-    setVerifying(true);
     try {
       const res = await fetch(`/api/trips/${trip.id}/verify`, {
         method: "POST",
@@ -69,53 +86,16 @@ export function TripWorkspace({
       const { trip: fresh } = (await state.json()) as { trip: CanvasTrip };
       dnd.resync(buildDayStops(fresh.legs.flatMap((l) => l.days)));
     } finally {
-      setVerifying(false);
+      setChecking(false);
     }
   };
-
-  // Auto-verification: kick the sweep on mount whenever the trip still has
-  // unresolved AI places — a trip fresh from generation (intake lands here
-  // right away) or an older trip that never ran it. The sweep is idempotent
-  // server-side (verified stops are skipped), so firing on every qualifying
-  // mount is cheap. Flagged stops don't re-trigger it: a flag is a result,
-  // kept until the traveler replans it.
   const autoVerifyFired = useRef(false);
   useEffect(() => {
     if (autoVerifyFired.current) return;
     autoVerifyFired.current = true;
-    const pending = trip.legs.some((l) =>
-      l.days.some((d) =>
-        d.stops.some(
-          (s) =>
-            s.source === "ai" &&
-            (s.type === "activity" || s.type === "meal") &&
-            s.verification === "unverified",
-        ),
-      ),
-    );
-    if (pending) void verifyPlaces();
+    if (checking) void verifyPlaces();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  // Per-card verify: confirm a single stop against Places, then resync so just
-  // that card's badge (and photo/pin) updates.
-  const [verifyingStopId, setVerifyingStopId] = useState<string | null>(null);
-  const verifyStop = async (stopId: string) => {
-    if (verifyingStopId) return;
-    setVerifyingStopId(stopId);
-    try {
-      const res = await fetch(`/api/stops/${stopId}/verify`, { method: "POST" });
-      if (!res.ok) return;
-      const state = await fetch(`/api/trips/${trip.id}/state`, {
-        cache: "no-store",
-      });
-      if (!state.ok) return;
-      const { trip: fresh } = (await state.json()) as { trip: CanvasTrip };
-      dnd.resync(buildDayStops(fresh.legs.flatMap((l) => l.days)));
-    } finally {
-      setVerifyingStopId(null);
-    }
-  };
 
   const dnd = useCanvasDnd(
     useMemo(() => buildDayStops(trip.legs.flatMap((l) => l.days)), [trip]),
@@ -250,10 +230,7 @@ export function TripWorkspace({
                 focusedDayId={focusedDayId}
                 onFocusDay={setFocusedDayId}
                 onAskCopilot={askCopilot}
-                onVerify={verifyPlaces}
-                verifying={verifying}
-                onVerifyStop={verifyStop}
-                verifyingStopId={verifyingStopId}
+                checking={checking}
                 travelLegs={travelLegs}
                 isDesktop={isDesktop}
               />

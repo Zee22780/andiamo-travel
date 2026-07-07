@@ -18,7 +18,7 @@ const PILLARS = [
     icon: "✓",
     tint: "bg-primary/10 text-primary",
     title: "Never makes things up",
-    body: "Every place is checked against live data, or clearly marked as an AI guess. Travel times are real, so your days are physically possible.",
+    body: "Every place is checked against live data automatically — anything that can't be confirmed says so. Travel times are real, so your days are physically possible.",
   },
   {
     icon: "🧭",

@@ -11,29 +11,32 @@ const TYPE_ICONS: Record<CanvasStop["type"], string> = {
   transit: "🚆",
 };
 
+// Verification happens automatically (on create + a sweep when the canvas
+// opens), so a clean card IS the confirmed state. Badges mark exceptions and
+// attribution only: a place that resolved but reports closed is the loud one,
+// a traveler's own pick gets credit, and a place the sweep couldn't match gets
+// a quiet hint — suppressed while the check is still running (`checking`) so
+// fresh trips don't flash it before the sweep lands.
 export function VerificationBadge({
   verification,
   source,
+  isPlace,
+  checking,
 }: {
   verification: CanvasStop["verification"];
   source?: CanvasStop["source"];
+  /** Activity/meal stops are real place lookups; transit/lodging notes aren't,
+   * so they never get a confirmation hint. */
+  isPlace: boolean;
+  checking?: boolean;
 }) {
-  if (verification === "verified") {
-    return (
-      <span className="flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary">
-        ✓ Verified
-      </span>
-    );
-  }
   if (verification === "flagged") {
     return (
       <span className="rounded-full bg-red-50 px-2 py-0.5 text-[10px] font-bold text-red-700">
-        Needs replan
+        Appears closed — needs replan
       </span>
     );
   }
-  // A traveler's own pick isn't an AI guess — attribute it to them. The verify
-  // pass can still confirm it later (verified/flagged take precedence above).
   if (source === "user") {
     return (
       <span className="rounded-full bg-surface-variant/40 px-2 py-0.5 text-[10px] font-bold text-on-surface-variant">
@@ -41,11 +44,14 @@ export function VerificationBadge({
       </span>
     );
   }
-  return (
-    <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-700">
-      AI guess
-    </span>
-  );
+  if (verification === "unverified" && isPlace && !checking) {
+    return (
+      <span className="text-[10px] italic text-on-surface-variant/50">
+        Couldn&apos;t confirm this place
+      </span>
+    );
+  }
+  return null;
 }
 
 export function StopCard({
@@ -54,8 +60,7 @@ export function StopCard({
   dragging,
   onEdit,
   onDelete,
-  onVerify,
-  verifying,
+  checking,
 }: {
   stop: CanvasStop;
   /** 1-based position among *places* in the day — mirrors the numbered map
@@ -64,16 +69,11 @@ export function StopCard({
   dragging?: boolean;
   onEdit?: () => void;
   onDelete?: () => void;
-  onVerify?: () => void;
-  verifying?: boolean;
+  /** True while the automatic verification sweep is in flight. */
+  checking?: boolean;
 }) {
   // Buttons must swallow pointerdown so they don't start a drag.
   const stop_ = (e: React.PointerEvent) => e.stopPropagation();
-  // A per-card "Verify" affordance for places that haven't been confirmed yet.
-  const canVerify =
-    onVerify &&
-    stop.verification === "unverified" &&
-    (stop.type === "activity" || stop.type === "meal");
   return (
     <div
       className={cn(
@@ -149,17 +149,9 @@ export function StopCard({
             <VerificationBadge
               verification={stop.verification}
               source={stop.source}
+              isPlace={stop.type === "activity" || stop.type === "meal"}
+              checking={checking}
             />
-            {canVerify && (
-              <button
-                onPointerDown={stop_}
-                onClick={onVerify}
-                disabled={verifying}
-                className="rounded-full border border-primary/30 px-2 py-0.5 text-[10px] font-bold text-primary transition-colors hover:bg-primary/5 disabled:opacity-60"
-              >
-                {verifying ? "Verifying…" : "Verify"}
-              </button>
-            )}
           </div>
         </div>
       </div>
