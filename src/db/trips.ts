@@ -4,6 +4,7 @@ import type { TripSummary } from "@/lib/ai/schemas";
 import { db, DEMO_PROFILE_ID, ensureDemoProfile } from "./client";
 import type { ResolvedItinerary } from "./poi-library";
 import { days, legs, stops, tripMembers, trips } from "./schema";
+import { verifyStopById } from "./verify";
 
 export type TripPhase = "upcoming" | "active" | "past" | "planning";
 
@@ -223,14 +224,14 @@ export async function addStop(input: {
     : undefined;
   const insertAt = laterTimed ? laterTimed.sortOrder : maxOrder;
 
-  return db.transaction(async (tx) => {
+  const row = await db.transaction(async (tx) => {
     if (laterTimed) {
       await tx
         .update(stops)
         .set({ sortOrder: sql`${stops.sortOrder} + 1` })
         .where(and(eq(stops.dayId, dayId), gte(stops.sortOrder, insertAt)));
     }
-    const [row] = await tx
+    const [inserted] = await tx
       .insert(stops)
       .values({
         dayId,
@@ -244,8 +245,26 @@ export async function addStop(input: {
         ...(input.verification ? { verification: input.verification } : {}),
       })
       .returning();
-    return row;
+    return inserted;
   });
+
+  // Auto-verification: resolve a place against Places the moment it enters the
+  // board, so its pin/photo/status never waits for a sweep. Only visitable
+  // places — transit/lodging notes aren't lookups. A personal entry that
+  // doesn't resolve just stays unresolved; a Places hiccup must never fail
+  // the add itself.
+  if (row && (type === "activity" || type === "meal")) {
+    try {
+      await verifyStopById(row.id);
+      const fresh = await db.query.stops.findFirst({
+        where: eq(stops.id, row.id),
+      });
+      return fresh ?? row;
+    } catch {
+      // Keep the unresolved row — the canvas-mount sweep can pick it up later.
+    }
+  }
+  return row;
 }
 
 export async function loadTrip(tripId: string) {
