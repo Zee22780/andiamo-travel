@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { CopilotBar } from "./copilot-bar";
 import { MapPane } from "./map-pane";
@@ -72,6 +72,30 @@ export function TripWorkspace({
       setVerifying(false);
     }
   };
+
+  // Auto-verification: kick the sweep on mount whenever the trip still has
+  // unresolved AI places — a trip fresh from generation (intake lands here
+  // right away) or an older trip that never ran it. The sweep is idempotent
+  // server-side (verified stops are skipped), so firing on every qualifying
+  // mount is cheap. Flagged stops don't re-trigger it: a flag is a result,
+  // kept until the traveler replans it.
+  const autoVerifyFired = useRef(false);
+  useEffect(() => {
+    if (autoVerifyFired.current) return;
+    autoVerifyFired.current = true;
+    const pending = trip.legs.some((l) =>
+      l.days.some((d) =>
+        d.stops.some(
+          (s) =>
+            s.source === "ai" &&
+            (s.type === "activity" || s.type === "meal") &&
+            s.verification === "unverified",
+        ),
+      ),
+    );
+    if (pending) void verifyPlaces();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Per-card verify: confirm a single stop against Places, then resync so just
   // that card's badge (and photo/pin) updates.
