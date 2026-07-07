@@ -83,8 +83,9 @@ export async function verifyTripPlaces(
   verified: number;
   flagged: number;
   unconfirmed: number;
+  skipped: number;
 }> {
-  const empty = { checked: 0, verified: 0, flagged: 0, unconfirmed: 0 };
+  const empty = { checked: 0, verified: 0, flagged: 0, unconfirmed: 0, skipped: 0 };
   if (!process.env.GOOGLE_MAPS_API_KEY) return empty;
 
   const trip = await db.query.trips.findFirst({ where: eq(trips.id, tripId) });
@@ -102,6 +103,7 @@ export async function verifyTripPlaces(
   let verified = 0;
   let flagged = 0;
   let unconfirmed = 0;
+  let skipped = 0;
 
   for (const leg of tripLegs) {
     // Anchor the leg city once, then bias every stop search toward it.
@@ -117,14 +119,24 @@ export async function verifyTripPlaces(
       const dayStops = await db.query.stops.findMany({
         where: eq(stops.dayId, day.id),
       });
-      for (const s of dayStops) {
-        // Only verify places the AI proposed that you actually visit. Leave
-        // user-edited stops and transit/lodging notes untouched.
-        if (s.source !== "ai") continue;
-        if (s.type !== "activity" && s.type !== "meal") continue;
-        checked++;
+      // Only verify places the AI proposed that you actually visit. Leave
+      // user-edited stops and transit/lodging notes untouched.
+      const eligible = dayStops.filter(
+        (s) => s.source === "ai" && (s.type === "activity" || s.type === "meal"),
+      );
+      // Idempotent: a verified stop keeps its result; only unresolved or
+      // flagged places get (re-)checked, so the pass is cheap to re-fire.
+      const pending = eligible.filter((s) => s.verification !== "verified");
+      skipped += eligible.length - pending.length;
+      checked += pending.length;
 
-        const status = await verifyStopRow(s, leg.destination, bias, withRegion);
+      // A day's stops resolve in parallel — a handful at a time, enough to
+      // keep a long trip inside the verify route's 60s budget without
+      // hammering Places or the connection pool.
+      const statuses = await Promise.all(
+        pending.map((s) => verifyStopRow(s, leg.destination, bias, withRegion)),
+      );
+      for (const status of statuses) {
         if (status === "verified") verified++;
         else if (status === "flagged") flagged++;
         else unconfirmed++;
@@ -132,7 +144,7 @@ export async function verifyTripPlaces(
     }
   }
 
-  return { checked, verified, flagged, unconfirmed };
+  return { checked, verified, flagged, unconfirmed, skipped };
 }
 
 // Verify a single stop (the per-card "Verify" action). Anchors to the stop's
