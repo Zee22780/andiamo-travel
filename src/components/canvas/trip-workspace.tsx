@@ -146,15 +146,20 @@ export function TripWorkspace({
 
   // The destination context for the focused day, for geocode biasing.
   // Append the trip's region/country so ambiguous city names resolve
-  // correctly (e.g. "Florence" -> "Florence, Italy", not Florence, USA).
+  // correctly (e.g. "Florence" -> "Florence, Italy", not Florence, USA). We
+  // also expose the bare destination so the map can fall back to it when the
+  // region suffix itself mis-geocodes (e.g. "Amalfi Coast" -> a road in Texas).
   const focusedNear = useMemo(() => {
-    const withRegion = (city: string) =>
-      trip.region ? `${city}, ${trip.region}` : city;
-    for (const leg of trip.legs) {
-      if (leg.days.some((d) => d.id === focusedDayId))
-        return withRegion(leg.destination);
-    }
-    return trip.legs[0] ? withRegion(trip.legs[0].destination) : "";
+    const legFor = () => {
+      for (const leg of trip.legs) {
+        if (leg.days.some((d) => d.id === focusedDayId)) return leg;
+      }
+      return trip.legs[0] ?? null;
+    };
+    const leg = legFor();
+    if (!leg) return { near: "", base: "" };
+    const base = leg.destination;
+    return { near: trip.region ? `${base}, ${trip.region}` : base, base };
   }, [trip, focusedDayId]);
 
   const focusedStops = focusedDayId ? (dnd.dayStops[focusedDayId] ?? []) : [];
@@ -250,7 +255,8 @@ export function TripWorkspace({
                   <MapPane
                     mapKey={mapKey}
                     stops={focusedStops}
-                    near={focusedNear}
+                    near={focusedNear.near}
+                    nearBase={focusedNear.base}
                   />
                 ) : (
                   <div className="flex h-full items-center justify-center bg-surface-warm p-6 text-center text-sm text-on-surface-variant/60">
@@ -264,7 +270,8 @@ export function TripWorkspace({
             <MapSheet
               mapKey={mapKey}
               stops={focusedStops}
-              near={focusedNear}
+              near={focusedNear.near}
+              nearBase={focusedNear.base}
               dayLabel={
                 focusedDayId ? (dayLabels[focusedDayId] ?? null) : null
               }

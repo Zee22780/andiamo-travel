@@ -102,10 +102,15 @@ export function MapPane({
   mapKey,
   stops,
   near,
+  nearBase,
 }: {
   mapKey: string;
   stops: CanvasStop[];
   near: string;
+  // The bare leg destination without the region suffix (e.g. "Positano" for a
+  // `near` of "Positano, Amalfi Coast"). Used as a fallback anchor when the
+  // region suffix mis-geocodes.
+  nearBase: string;
 }) {
   const container = useRef<HTMLDivElement>(null);
   const map = useRef<maplibregl.Map | null>(null);
@@ -139,18 +144,52 @@ export function MapPane({
       // resolve far away). P2's Places verification removes the need for this.
       // Geocode the destination itself with no extra context (it already
       // includes the region, e.g. "Florence, Italy").
+      // Ground-truth reference from stops that already carry real coordinates
+      // (verified via Places). Its centroid tells us which region the trip is
+      // actually in, so we can arbitrate between anchor candidates below.
+      const storedCoords = stops
+        .filter((s) => s.lat != null && s.lng != null)
+        .map((s) => [s.lng!, s.lat!] as [number, number]);
+      const storedCentroid: [number, number] | null = storedCoords.length
+        ? [
+            storedCoords.reduce((a, c) => a + c[0], 0) / storedCoords.length,
+            storedCoords.reduce((a, c) => a + c[1], 0) / storedCoords.length,
+          ]
+        : null;
+
       let anchor: [number, number] | null = null;
       try {
+        // Geocode the region-suffixed anchor and, when it differs, the bare
+        // destination too. The suffix normally disambiguates an ambiguous city
+        // ("Florence" -> "Florence, Italy"), but when the region itself matches
+        // an unrelated place ("Amalfi Coast" -> a road in Texas) it drags the
+        // anchor far from the real destination.
+        const items = [{ id: "__anchor__", query: near }];
+        if (nearBase && nearBase !== near)
+          items.push({ id: "__anchor_base__", query: nearBase });
         const aRes = await fetch("/api/geocode", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ items: [{ id: "__anchor__", query: near }] }),
+          body: JSON.stringify({ items }),
         });
         if (aRes.ok) {
           const { coords } = (await aRes.json()) as {
             coords: Record<string, [number, number]>;
           };
-          anchor = coords["__anchor__"] ?? null;
+          const suffixed = coords["__anchor__"] ?? null;
+          const base = coords["__anchor_base__"] ?? null;
+          // With ground truth, pick whichever candidate sits nearer the real
+          // stops — this rejects the Texas mis-geocode yet still prefers
+          // "Florence, Italy" over "Florence, Alabama". Without it, keep the
+          // suffixed anchor (today's behavior); fall back to the bare one.
+          const dist = (a: [number, number], b: [number, number]) =>
+            Math.hypot(a[0] - b[0], a[1] - b[1]);
+          anchor =
+            suffixed && base && storedCentroid
+              ? dist(suffixed, storedCentroid) <= dist(base, storedCentroid)
+                ? suffixed
+                : base
+              : (suffixed ?? base);
         }
       } catch {
         // non-fatal; fit falls back to stop points
@@ -211,6 +250,9 @@ export function MapPane({
 
       const nums = placeNumbers(stops);
       const points: [number, number][] = [];
+      // Points that came from stored (verified) coordinates are ground truth —
+      // they drive framing directly, never filtered or padded by the anchor.
+      let storedPoints = 0;
       stops.forEach((stop) => {
         // Transit is a journey, not a place. Interstitial hops show as the line
         // between their pinned neighbors; only boundary transfers get a marker.
@@ -233,9 +275,17 @@ export function MapPane({
           );
           return;
         }
+        // Stored (verified) coordinates come from Google Places and are
+        // authoritative; the anchor sanity check only guards *geocoded* titles,
+        // which can resolve far away. Filtering stored pins by the anchor is
+        // actively harmful when the anchor itself mis-geocodes (e.g. a region
+        // like "Amalfi Coast" resolving to a road in Texas) — it would drop
+        // every correct pin and strand the map on the bad anchor.
+        const stored = stop.lat != null && stop.lng != null;
         const c = coordFor(stop);
-        if (!c || !nearAnchor(c)) return;
+        if (!c || (!stored && !nearAnchor(c))) return;
         points.push(c);
+        if (stored) storedPoints++;
         // One pin style for every place; the card's verification badge already
         // conveys confidence. The number mirrors the card badge (places only).
         const el = document.createElement("div");
@@ -279,10 +329,11 @@ export function MapPane({
       if (m.isStyleLoaded()) applyRoute();
       else m.once("load", applyRoute);
 
-      if (points.length === 1 && anchor) {
-        // One stop is too thin to trust the geocode fully (it may be a nearby
-        // town, not the city). Frame the destination too so we never strand
-        // the user on a mis-resolved pin.
+      if (points.length === 1 && anchor && storedPoints === 0) {
+        // A single *geocoded* stop is too thin to trust fully (it may be a
+        // nearby town, not the city). Frame the destination too so we never
+        // strand the user on a mis-resolved pin. Stored (verified) coordinates
+        // are exact, so they skip this and center directly (below).
         const b = new maplibregl.LngLatBounds(anchor, anchor);
         b.extend(points[0]);
         m.fitBounds(b, { padding: 96, maxZoom: 13, duration: 600 });

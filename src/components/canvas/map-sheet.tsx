@@ -12,11 +12,13 @@ export function MapSheet({
   mapKey,
   stops,
   near,
+  nearBase,
   dayLabel,
 }: {
   mapKey: string | null;
   stops: CanvasStop[];
   near: string;
+  nearBase: string;
   dayLabel: string | null;
 }) {
   const [open, setOpen] = useState(false);
@@ -83,7 +85,12 @@ export function MapSheet({
         </div>
         <div className="relative min-h-0 flex-1 overflow-hidden rounded-b-2xl">
           {everOpened && mapKey ? (
-            <MapPane mapKey={mapKey} stops={stops} near={near} />
+            <MapPane
+              mapKey={mapKey}
+              stops={stops}
+              near={near}
+              nearBase={nearBase}
+            />
           ) : (
             <div className="flex h-full items-center justify-center bg-surface-warm p-6 text-center text-sm text-on-surface-variant/60">
               {mapKey ? "Loading map…" : "Add a MapTiler key to enable the map."}
