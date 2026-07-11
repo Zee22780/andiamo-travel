@@ -1,5 +1,5 @@
 import { PlacePhoto } from "@/components/place-photo";
-import { loadTrips, TripPhase } from "@/db/trips";
+import { loadTrips, TripCard, TripPhase } from "@/db/trips";
 
 export const metadata = { title: "Your trips — Andiamo" };
 export const dynamic = "force-dynamic";
@@ -41,6 +41,69 @@ function dateRange(start: string | null, end: string | null) {
       year: "numeric",
     });
   return `${fmt(start)} → ${fmt(end)}`;
+}
+
+// Dashboard sections, most-immediate first. loadTrips already sorts by recency
+// within each phase; grouping keeps a Past trip from sitting between Upcoming
+// ones. Sections with no trips are skipped.
+const SECTIONS: { phase: TripPhase; heading: string }[] = [
+  { phase: "active", heading: "Happening now" },
+  { phase: "upcoming", heading: "Upcoming" },
+  { phase: "planning", heading: "In planning" },
+  { phase: "past", heading: "Past trips" },
+];
+
+function TripCardLink({ trip }: { trip: TripCard }) {
+  const phase = PHASE[trip.phase];
+  return (
+    <a
+      href={`/trips/${trip.id}`}
+      className="group flex flex-col overflow-hidden rounded-xl border border-surface-variant/60 bg-white shadow-sm transition-shadow hover:shadow-md"
+    >
+      <PlacePhoto
+        query={trip.route[0] ?? undefined}
+        width={600}
+        gradient={`bg-gradient-to-br ${phase.gradient}`}
+        className="h-28"
+      >
+        <div
+          aria-hidden
+          className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/10 to-black/15"
+        />
+        <span
+          className={`absolute right-3 top-3 rounded-full bg-white/95 px-2.5 py-0.5 text-[11px] font-bold shadow-sm ${phase.pillText}`}
+        >
+          {phase.label}
+        </span>
+        {trip.route[0] && (
+          <span className="absolute inset-x-4 bottom-3 truncate font-headline text-lg font-bold text-white drop-shadow">
+            {trip.route[0]}
+          </span>
+        )}
+      </PlacePhoto>
+      <div className="flex flex-1 flex-col gap-2 p-5">
+        <h2 className="font-headline text-lg font-bold leading-tight group-hover:text-primary">
+          {trip.name}
+        </h2>
+        <p className="text-sm font-medium text-on-surface-variant">
+          {dateRange(trip.startDate, trip.endDate)}
+        </p>
+        {trip.route.length > 1 && (
+          <div className="flex flex-wrap items-center gap-1 text-xs text-on-surface-variant/80">
+            {trip.route.map((city, i) => (
+              <span key={`${city}-${i}`} className="flex items-center gap-1">
+                {i > 0 && <span className="text-surface-variant">→</span>}
+                {city}
+              </span>
+            ))}
+          </div>
+        )}
+        <p className="mt-auto pt-1 text-xs text-on-surface-variant/60">
+          {trip.stopCount} stop{trip.stopCount === 1 ? "" : "s"} planned
+        </p>
+      </div>
+    </a>
+  );
 }
 
 export default async function TripsDashboard() {
@@ -87,64 +150,21 @@ export default async function TripsDashboard() {
             </a>
           </div>
         ) : (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {trips.map((trip) => {
-              const phase = PHASE[trip.phase];
+          <div className="space-y-10">
+            {SECTIONS.map(({ phase, heading }) => {
+              const group = trips.filter((t) => t.phase === phase);
+              if (group.length === 0) return null;
               return (
-                <a
-                  key={trip.id}
-                  href={`/trips/${trip.id}`}
-                  className="group flex flex-col overflow-hidden rounded-xl border border-surface-variant/60 bg-white shadow-sm transition-shadow hover:shadow-md"
-                >
-                  <PlacePhoto
-                    query={trip.route[0] ?? undefined}
-                    width={600}
-                    gradient={`bg-gradient-to-br ${phase.gradient}`}
-                    className="h-28"
-                  >
-                    <div
-                      aria-hidden
-                      className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/10 to-black/15"
-                    />
-                    <span
-                      className={`absolute right-3 top-3 rounded-full bg-white/95 px-2.5 py-0.5 text-[11px] font-bold shadow-sm ${phase.pillText}`}
-                    >
-                      {phase.label}
-                    </span>
-                    {trip.route[0] && (
-                      <span className="absolute inset-x-4 bottom-3 truncate font-headline text-lg font-bold text-white drop-shadow">
-                        {trip.route[0]}
-                      </span>
-                    )}
-                  </PlacePhoto>
-                  <div className="flex flex-1 flex-col gap-2 p-5">
-                    <h2 className="font-headline text-lg font-bold leading-tight group-hover:text-primary">
-                      {trip.name}
-                    </h2>
-                    <p className="text-sm font-medium text-on-surface-variant">
-                      {dateRange(trip.startDate, trip.endDate)}
-                    </p>
-                    {trip.route.length > 1 && (
-                      <div className="flex flex-wrap items-center gap-1 text-xs text-on-surface-variant/80">
-                        {trip.route.map((city, i) => (
-                          <span
-                            key={`${city}-${i}`}
-                            className="flex items-center gap-1"
-                          >
-                            {i > 0 && (
-                              <span className="text-surface-variant">→</span>
-                            )}
-                            {city}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                    <p className="mt-auto pt-1 text-xs text-on-surface-variant/60">
-                      {trip.stopCount} stop{trip.stopCount === 1 ? "" : "s"}{" "}
-                      planned
-                    </p>
+                <section key={phase}>
+                  <h2 className="mb-4 text-sm font-bold uppercase tracking-widest text-on-surface-variant/70">
+                    {heading}
+                  </h2>
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    {group.map((trip) => (
+                      <TripCardLink key={trip.id} trip={trip} />
+                    ))}
                   </div>
-                </a>
+                </section>
               );
             })}
           </div>

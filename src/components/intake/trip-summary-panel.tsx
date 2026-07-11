@@ -21,6 +21,23 @@ function filledCount(summary: IntakeSummary): number {
 const BUDGET_STEPS = ["shoestring", "mid", "comfortable", "luxury"] as const;
 const PACE_STEPS = ["relaxed", "balanced", "packed"] as const;
 
+// Match the dashboard/trip-header format ("Sep 3, 2027") instead of showing the
+// raw ISO date. Noon anchor avoids the UTC-parse off-by-one. Falls back to the
+// raw value if it isn't a parseable date.
+function formatDate(iso: string): string {
+  const d = new Date(`${iso}T12:00:00`);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+function formatRange(start: string, end: string): string {
+  return `${formatDate(start)} → ${formatDate(end)}`;
+}
+
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="space-y-1.5">
@@ -100,7 +117,7 @@ export function TripSummaryPanel({
       <Row label="Dates">
         {summary.startDate && summary.endDate ? (
           <span className="text-sm font-medium">
-            {summary.startDate} → {summary.endDate}
+            {formatRange(summary.startDate, summary.endDate)}
           </span>
         ) : (
           <Unknown />
@@ -216,7 +233,7 @@ export function MobileTripSummary({ summary }: { summary: IntakeSummary }) {
   const filled = filledCount(summary);
   const dates =
     summary.startDate && summary.endDate
-      ? `${summary.startDate} → ${summary.endDate}`
+      ? formatRange(summary.startDate, summary.endDate)
       : null;
   const preview = summary.destination
     ? [summary.destination, dates].filter(Boolean).join(" · ")
