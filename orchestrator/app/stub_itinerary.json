@@ -1,0 +1,133 @@
+{
+  "tripName": "Porto & Lisbon Highlights",
+  "legs": [
+    {
+      "destination": "Porto",
+      "startDate": "2027-05-14",
+      "endDate": "2027-05-15",
+      "lodging": "Ribeira — riverside, walkable to the historic center",
+      "days": [
+        {
+          "date": "2027-05-14",
+          "notes": "Arrival day — keep it light around the historic center",
+          "stops": [
+            {
+              "poi": "porto/livraria-lello",
+              "startTime": "10:30",
+              "durationMin": 60,
+              "mustDo": true,
+              "userAdded": false
+            },
+            {
+              "type": "meal",
+              "title": "Francesinha lunch at a classic tasca",
+              "description": "Porto's signature layered sandwich — split one, it's enormous",
+              "startTime": "13:00",
+              "durationMin": 75,
+              "costEstimate": 15,
+              "mustDo": false,
+              "userAdded": false
+            },
+            {
+              "poi": "porto/cais-da-ribeira",
+              "startTime": "17:00",
+              "durationMin": null,
+              "mustDo": false,
+              "userAdded": false
+            }
+          ]
+        },
+        {
+          "date": "2027-05-15",
+          "notes": null,
+          "stops": [
+            {
+              "type": "activity",
+              "title": "Port wine cellar tour in Vila Nova de Gaia",
+              "description": null,
+              "startTime": "11:00",
+              "durationMin": 90,
+              "costEstimate": 25,
+              "mustDo": true,
+              "userAdded": true
+            },
+            {
+              "type": "meal",
+              "title": "Riverside dinner in Gaia",
+              "description": "Sunset view back across the Douro to the Ribeira",
+              "startTime": "19:30",
+              "durationMin": 90,
+              "costEstimate": null,
+              "mustDo": false,
+              "userAdded": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "destination": "Lisbon",
+      "startDate": "2027-05-16",
+      "endDate": "2027-05-17",
+      "lodging": null,
+      "days": [
+        {
+          "date": "2027-05-16",
+          "notes": "Travel morning, then Belém",
+          "stops": [
+            {
+              "type": "transit",
+              "title": "Train Porto Campanhã to Lisbon Santa Apolónia",
+              "description": "Alfa Pendular, ~3h along the coast",
+              "startTime": "08:30",
+              "durationMin": 185,
+              "costEstimate": 35,
+              "mustDo": false,
+              "userAdded": false
+            },
+            {
+              "poi": "lisbon/torre-de-belem",
+              "startTime": "15:00",
+              "durationMin": 60,
+              "mustDo": false,
+              "userAdded": false
+            },
+            {
+              "poi": "lisbon/pasteis-de-belem",
+              "startTime": "16:30",
+              "durationMin": 45,
+              "mustDo": true,
+              "userAdded": false
+            }
+          ]
+        },
+        {
+          "date": "2027-05-17",
+          "notes": "Alfama and farewell",
+          "stops": [
+            {
+              "type": "activity",
+              "title": "Alfama wander: miradouros and Fado houses",
+              "description": "Get lost on purpose — Portas do Sol to the cathedral",
+              "startTime": "10:00",
+              "durationMin": 150,
+              "costEstimate": 0,
+              "mustDo": false,
+              "userAdded": false
+            },
+            {
+              "type": "meal",
+              "title": "Farewell seafood lunch in the Mercado da Ribeira",
+              "description": null,
+              "startTime": "13:30",
+              "durationMin": 90,
+              "costEstimate": 30,
+              "mustDo": false,
+              "userAdded": false
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

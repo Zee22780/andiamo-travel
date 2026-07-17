@@ -1,6 +1,7 @@
 # local-only working docs (per global rules)
 CLAUDE.md
 PLAN.md
+User-Flow-Plan.md
 notes/
 .claude/
 
@@ -26,6 +27,11 @@ next-env.d.ts
 
 # vercel
 .vercel
+
+# python (orchestrator/)
+.venv/
+__pycache__/
+.pytest_cache/
 
 # playwright mcp artifacts
 .playwright-mcp/

@@ -108,7 +108,13 @@ export function IntakeChat() {
     setDrafting(true);
     setDraftProgress(0);
     try {
-      const res = await fetch("/api/generate", {
+      // Experimental multi-agent planner: same SSE surface, different backend.
+      // Off unless NEXT_PUBLIC_USE_ORCHESTRATOR=1 (see orchestrator/README.md).
+      const generateEndpoint =
+        process.env.NEXT_PUBLIC_USE_ORCHESTRATOR === "1"
+          ? "/api/generate-orchestrated"
+          : "/api/generate";
+      const res = await fetch(generateEndpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         // Send the visible transcript so the original interview is saved as the

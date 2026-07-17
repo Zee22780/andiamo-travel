@@ -1,0 +1,25 @@
+[project]
+name = "andiamo-orchestrator"
+version = "0.1.0"
+description = "Leg-worker orchestration service for Andiamo (orchestrator → parallel leg-workers → critic)"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn>=0.30",
+    "anthropic>=0.60",
+    "pydantic>=2.7",
+    "python-dotenv>=1.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+    "httpx>=0.27",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+addopts = "-m 'not live'"
+markers = [
+    "live: makes real Anthropic API calls (needs ANTHROPIC_API_KEY; costs money). Run with: uv run pytest -m live",
+]
